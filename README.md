@@ -36,4 +36,4 @@ file in the repository under the "Roofline_Visualizer-1.1.0" directory.
 
 ## Contact Information ##
 
-Please contact [Terry Ligocki](mailto:tjligocki@lbl.gov) with any questions, problems, corrections, suggestions, etc.
+Please contact [Charlene Yang](mailto:CJYang@lbl.gov) with any questions, problems, corrections, suggestions, etc.
