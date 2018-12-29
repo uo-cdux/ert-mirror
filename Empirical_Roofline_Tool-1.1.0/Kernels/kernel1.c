@@ -124,6 +124,7 @@ void kernel(uint64_t nsize,
   double alpha = 0.5;
   uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
+#pragma unroll (8)
     for (i = 0; i < nsize; ++i) {
       double beta = 0.8;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
