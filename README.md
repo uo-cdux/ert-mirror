@@ -1,8 +1,7 @@
 # CS Roofline Toolkit #
 
 Welcome to the CS Roofline Toolkit Bitbucket site.  The Empirical Roofline Tool and Roofline Visualizer are currently available here.
-In the future additional tools will be hosted here.  Please see the
-[repository Wiki](https://bitbucket.org/berkeleylab/cs-roofline-toolkit/wiki/Home) for additional information.
+In the future additional tools will be hosted here.  
 
 For an overview of the Roofline Performance Model and this software's place in that context see
 [https://crd.lbl.gov/departments/computer-science/performance-and-algorithms-research/research/roofline/](https://crd.lbl.gov/departments/computer-science/performance-and-algorithms-research/research/roofline/).
