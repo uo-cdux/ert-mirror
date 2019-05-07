@@ -228,14 +228,14 @@ class ert_core:
         command_prefix += ["-DERT_GPU"] + self.dict["CONFIG"]["ERT_GPU_CFLAGS"]
 
       command = command_prefix + \
-                ["-c","%s/Drivers/%s.c" % (self.exe_path,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
+                ["-c","%s/Drivers/%s.cxx" % (self.exe_path,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
                 ["-o","%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0])]
       if execute_noshell(command,self.options.verbose > 1) != 0:
         sys.stderr.write("Compiling driver, %s, failed\n" % self.dict["CONFIG"]["ERT_DRIVER"][0])
         return 1
 
       command = command_prefix + \
-                ["-c","%s/Kernels/%s.c" % (self.exe_path,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
+                ["-c","%s/Kernels/%s.cxx" % (self.exe_path,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
                 ["-o","%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])]
       if execute_noshell(command,self.options.verbose > 1) != 0:
         sys.stderr.write("Compiling kernel, %s, failed\n" % self.dict["CONFIG"]["ERT_KERNEL"][0])
