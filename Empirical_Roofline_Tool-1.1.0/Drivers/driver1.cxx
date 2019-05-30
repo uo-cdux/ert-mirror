@@ -17,6 +17,23 @@ double getTime()
   return time;
 }
 
+template <typename T>
+void checkBuffer(T *buffer) {
+  if (buffer == nullptr) {
+    fprintf(stderr, "Out of memory!\n");
+    exit(1);
+  }
+} 
+
+template <typename T>
+T* alloc(uint64_t psize) {
+#ifdef ERT_INTEL
+  return  (T *)_mm_malloc(psize, ERT_ALIGN);
+#else
+  return (T *)malloc(psize);
+#endif
+}
+
 int main(int argc, char *argv[]) {
 #if ERT_GPU
   if (argc != 3) {
@@ -52,24 +69,12 @@ int main(int argc, char *argv[]) {
   uint64_t TSIZE = ERT_MEMORY_MAX;
   uint64_t PSIZE = TSIZE / nprocs;
 
-#ifdef ERT_INTEL
-  #ifdef ERT_GPU
-  double *              buf = (double *)_mm_malloc(PSIZE, ERT_ALIGN);
-  #else
-  double * __restrict__ buf = (double *)_mm_malloc(PSIZE, ERT_ALIGN);
-  #endif
+#ifdef ERT_GPU
+  double *              dblbuf = alloc<double>(PSIZE);
 #else
-  #ifdef ERT_GPU
-  double *              buf = (double *)malloc(PSIZE);
-  #else
-  double * __restrict__ buf = (double *)malloc(PSIZE);
-  #endif
+  double * __restrict__ dblbuf = alloc<double>(PSIZE);
 #endif
-
-  if (buf == NULL) {
-    fprintf(stderr, "Out of memory!\n");
-    return -1;
-  }
+  checkBuffer(dblbuf);
 
 #ifdef ERT_OPENMP
   #pragma omp parallel private(id)
@@ -113,12 +118,12 @@ int main(int argc, char *argv[]) {
     uint64_t nid =  nsize * id ;
 
     // initialize small chunck of buffer within each thread
-    initialize(nsize, &buf[nid], 1.0);
+    initialize(nsize, &dblbuf[nid], 1.0);
 
 #if ERT_GPU
-    double *d_buf;
-    cudaMalloc((void **)&d_buf, nsize*sizeof(double));
-    cudaMemset(d_buf, 0, nsize*sizeof(double));
+    double *d_dblbuf;
+    cudaMalloc((void **)&d_dblbuf, nsize*sizeof(double));
+    cudaMemset(d_dblbuf, 0, nsize*sizeof(double));
     cudaDeviceSynchronize();
 #endif
 
@@ -136,7 +141,7 @@ int main(int argc, char *argv[]) {
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
-        cudaMemcpy(d_buf, &buf[nid], n*sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_dblbuf, &dblbuf[nid], n*sizeof(double), cudaMemcpyHostToDevice);
         cudaDeviceSynchronize();
 #endif
 
@@ -158,14 +163,14 @@ int main(int argc, char *argv[]) {
         }
 
 #if    ERT_AVX // AVX intrinsics for Edison(intel xeon)
-        avxKernel(n, t, &buf[nid]);
+        avxKernel(n, t, &dblbuf[nid]);
 #elif  ERT_KNC // KNC intrinsics for Babbage(intel mic)
-        kncKernel(n, t, &buf[nid]);
+        kncKernel(n, t, &dblbuf[nid]);
 #elif  ERT_GPU // CUDA code
-        gpuKernel(n, t, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
+        gpuKernel(n, t, d_dblbuf, &bytes_per_elem, &mem_accesses_per_elem);
         cudaDeviceSynchronize();
 #else          // C-code
-        kernel(n, t, &buf[nid], &bytes_per_elem, &mem_accesses_per_elem);
+        kernel(n, t, &dblbuf[nid], &bytes_per_elem, &mem_accesses_per_elem);
 #endif
 
 #ifdef ERT_OPENMP
@@ -207,7 +212,7 @@ int main(int argc, char *argv[]) {
         } // print
 
 #if ERT_GPU
-        cudaMemcpy(&buf[nid], d_buf, n*sizeof(double), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&dblbuf[nid], d_dblbuf, n*sizeof(double), cudaMemcpyDeviceToHost);
         cudaDeviceSynchronize();
 #endif
       } // working set - ntrials
@@ -221,7 +226,7 @@ int main(int argc, char *argv[]) {
     } // working set - nsize
 
 #if ERT_GPU
-    cudaFree(d_buf);
+    cudaFree(d_dblbuf);
 
     if (cudaGetLastError() != cudaSuccess) {
       printf("Last cuda error: %s\n",cudaGetErrorString(cudaGetLastError()));
@@ -232,9 +237,9 @@ int main(int argc, char *argv[]) {
   } // parallel region
 
 #ifdef ERT_INTEL
-  _mm_free(buf);
+  _mm_free(dblbuf);
 #else
-  free(buf);
+  free(dblbuf);
 #endif
 
 #ifdef ERT_MPI
