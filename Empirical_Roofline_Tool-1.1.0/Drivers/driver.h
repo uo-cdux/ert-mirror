@@ -7,6 +7,8 @@
 #include <sys/time.h>
 #include <inttypes.h>
 
+#include "Array.h"
+
 #ifdef ERT_OPENMP
   #include <omp.h>
 #endif
@@ -28,5 +30,33 @@
 #endif
 
 #define GBUNIT (1024 * 1024 * 1024)
+
+template <typename T>
+class Driver {
+private:
+  int fMPIRank;
+  int fMPISize;
+  int fNThreads;
+
+#ifdef ERT_GPU
+  int fGPUBlocks;
+  int fGPUThreads;
+#endif
+
+#ifdef ERT_MPI
+  int fMPIProvided;
+  #ifdef ERT_OPENMP
+  int fMPIRequested;
+  #endif
+#endif
+
+  Array<T> fArray;
+
+public:
+  Driver();
+  ~Driver();
+
+  void Run();
+};
 
 #endif
