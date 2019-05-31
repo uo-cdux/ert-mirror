@@ -34,14 +34,6 @@ T* alloc(uint64_t psize) {
 #endif
 }
 
-template <typename T>
-T* setDeviceData(uint64_t nsize) {
-  T* buf;
-  cudaMalloc((void **)&buf, nsize*sizeof(T));
-  cudaMemset(buf, 0, nsize*sizeof(T));
-  return buf;
-}
-
 void setGPU(const int id) {
   int num_gpus = 0;
   int gpu;
@@ -62,6 +54,71 @@ void setGPU(const int id) {
   cudaSetDevice(id % num_gpus);
   cudaGetDevice(&gpu_id);
   cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, gpu_id);
+}
+
+template <typename T>
+T* setDeviceData(uint64_t nsize) {
+  T* buf;
+  cudaMalloc((void **)&buf, nsize*sizeof(T));
+  cudaMemset(buf, 0, nsize*sizeof(T));
+  return buf;
+}
+
+inline void print(uint64_t working_set_size,
+           int bytes_per_elem,
+           uint64_t t,
+           double seconds,
+           uint64_t total_bytes,
+           uint64_t total_flops)
+{
+#if ERT_GPU
+          printf("%12lld %12lld %15.3lf %12lld %12lld\n",
+                  working_set_size * bytes_per_elem,
+                  t,
+                  seconds * 1000000,
+                  total_bytes,
+                  total_flops);
+#else
+          printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n",
+                  working_set_size * bytes_per_elem,
+                  t,
+                  seconds * 1000000,
+                  total_bytes,
+                  total_flops);
+#endif
+}
+
+template <typename T>
+inline void host2device (T* h_ptr, T* d_ptr, uint64_t nid, uint64_t n) {
+  cudaMemcpy(d_ptr, &h_ptr[nid], n*sizeof(T), cudaMemcpyHostToDevice);
+  cudaDeviceSynchronize();
+}
+
+template <typename T>
+inline void device2host (T* h_ptr, T* d_ptr, uint64_t nid, uint64_t n) {
+  cudaMemcpy(&h_ptr[nid], d_ptr, n*sizeof(T), cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
+}
+
+template <typename T>
+inline void launchKernel(uint64_t t,
+                         uint64_t nid,
+                         T* h_ptr,
+                         T* d_ptr,
+                         int* bytes_per_elem_ptr,
+                         int* mem_accesses_per_elem_ptr)
+{
+  uint64_t n = ERT_WORKING_SET_MIN;
+#if    ERT_AVX // AVX intrinsics for Edison(intel xeon)
+  avxKernel(n, t, &h_ptr[nid]);
+#elif  ERT_KNC // KNC intrinsics for Babbage(intel mic)
+  kncKernel(n, t, &h_ptr[nid]);
+#elif  ERT_GPU // CUDA code
+  gpuKernel<T>(n, t, d_ptr, bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
+  cudaDeviceSynchronize();
+#else          // C-code
+  kernel<T>(n, t, &h_ptr[nid], &bytes_per_elem_ptr, &mem_accesses_per_elem_ptr);
+#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -114,30 +171,22 @@ int main(int argc, char *argv[]) {
 #ifdef ERT_OPENMP
     id = omp_get_thread_num();
     nthreads = omp_get_num_threads();
-#else
-    id = 0;
-    nthreads = 1;
 #endif
 
 #if ERT_GPU
     setGPU(id);
 #endif
-        
     uint64_t nsize = PSIZE / nthreads;
     nsize = nsize & (~(ERT_ALIGN-1));
 
     uint64_t dblnsize = nsize / sizeof(double);
     uint64_t dblnid = dblnsize * id ;
 
-    uint64_t sglnsize = nsize / sizeof(float);
-    uint64_t sglnid = sglnsize * id ;
-
     // initialize small chunck of buffer within each thread
     initialize<double>(dblnsize, &dblbuf[dblnid], 1.0);
 
 #if ERT_GPU
     double *d_dblbuf = setDeviceData<double>(dblnsize);
-    float *d_sglbuf = setDeviceData<float>(sglnsize);
     cudaDeviceSynchronize();
 #endif
 
@@ -155,8 +204,7 @@ int main(int argc, char *argv[]) {
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
-        cudaMemcpy(d_dblbuf, &dblbuf[dblnid], n*sizeof(double), cudaMemcpyHostToDevice);
-        cudaDeviceSynchronize();
+        host2device<double>(dblbuf, d_dblbuf, dblnid, n);
 #endif
 
 #ifdef ERT_MPI
@@ -176,16 +224,7 @@ int main(int argc, char *argv[]) {
           startTime = getTime();
         }
 
-#if    ERT_AVX // AVX intrinsics for Edison(intel xeon)
-        avxKernel(n, t, &dblbuf[nid]);
-#elif  ERT_KNC // KNC intrinsics for Babbage(intel mic)
-        kncKernel(n, t, &dblbuf[nid]);
-#elif  ERT_GPU // CUDA code
-        gpuKernel(n, t, d_dblbuf, &bytes_per_elem, &mem_accesses_per_elem);
-        cudaDeviceSynchronize();
-#else          // C-code
-        kernel(n, t, &dblbuf[nid], &bytes_per_elem, &mem_accesses_per_elem);
-#endif
+        launchKernel<double>(t, dblnid, dblbuf, d_dblbuf, &bytes_per_elem, &mem_accesses_per_elem);
 
 #ifdef ERT_OPENMP
         #pragma omp barrier
@@ -207,27 +246,11 @@ int main(int argc, char *argv[]) {
           uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
           uint64_t total_flops = t * working_set_size * ERT_FLOP;
 
-          // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
-#if ERT_GPU
-          printf("%12lld %12lld %15.3lf %12lld %12lld\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
-#else
-          printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
-#endif
+          print(working_set_size, bytes_per_elem, t, seconds, total_bytes, total_flops);
         } // print
 
 #if ERT_GPU
-        cudaMemcpy(&dblbuf[dblnid], d_dblbuf, n*sizeof(double), cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
+        device2host(dblbuf, d_dblbuf, dblnid, n);
 #endif
       } // working set - ntrials
 
