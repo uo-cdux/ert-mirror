@@ -5,22 +5,6 @@
 #include "rep.h"
 #include "kernel1.h"
 
-void initialize(uint64_t nsize,
-                double* __restrict__ A,
-                double value)
-{
-#ifdef ERT_INTEL
-  __assume_aligned(A, ERT_ALIGN);
-#elif __xlC__
-  __alignx(ERT_ALIGN, A);
-#endif
-
-  uint64_t i;
-  for (i = 0; i < nsize; ++i) {
-    A[i] = value;
-  }
-}
-
 #ifdef ERT_GPU
 __global__ void block_stride(uint64_t ntrials, uint64_t nsize, double *A)
 {

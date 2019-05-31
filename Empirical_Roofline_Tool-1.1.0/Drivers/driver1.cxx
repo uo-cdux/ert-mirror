@@ -34,6 +34,36 @@ T* alloc(uint64_t psize) {
 #endif
 }
 
+template <typename T>
+T* setDeviceData(uint64_t nsize) {
+  T* buf;
+  cudaMalloc((void **)&buf, nsize*sizeof(T));
+  cudaMemset(buf, 0, nsize*sizeof(T));
+  return buf;
+}
+
+void setGPU(const int id) {
+  int num_gpus = 0;
+  int gpu;
+  int gpu_id;
+  int numSMs;
+
+  cudaGetDeviceCount(&num_gpus);
+  if (num_gpus < 1) {
+    fprintf(stderr, "No CUDA device detected.\n");
+    exit(1);
+  }
+
+  for (gpu = 0; gpu < num_gpus; gpu++) {
+    cudaDeviceProp dprop;
+    cudaGetDeviceProperties(&dprop,gpu);
+  }
+
+  cudaSetDevice(id % num_gpus);
+  cudaGetDevice(&gpu_id);
+  cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, gpu_id);
+}
+
 int main(int argc, char *argv[]) {
 #if ERT_GPU
   if (argc != 3) {
@@ -90,40 +120,24 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if ERT_GPU
-    int num_gpus = 0;
-    int gpu;
-    int gpu_id;
-    int numSMs;
-
-    cudaGetDeviceCount(&num_gpus);
-    if (num_gpus < 1) {
-      fprintf(stderr, "No CUDA device detected.\n");
-      return -1;
-    }
-
-    for (gpu = 0; gpu < num_gpus; gpu++) {
-      cudaDeviceProp dprop;
-      cudaGetDeviceProperties(&dprop,gpu);
-      /* printf("%d: %s\n",gpu,dprop.name); */
-    }
-
-    cudaSetDevice(id % num_gpus);
-    cudaGetDevice(&gpu_id);
-    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, gpu_id);
+    setGPU(id);
 #endif
         
     uint64_t nsize = PSIZE / nthreads;
     nsize = nsize & (~(ERT_ALIGN-1));
-    nsize = nsize / sizeof(double);
-    uint64_t nid =  nsize * id ;
+
+    uint64_t dblnsize = nsize / sizeof(double);
+    uint64_t dblnid = dblnsize * id ;
+
+    uint64_t sglnsize = nsize / sizeof(float);
+    uint64_t sglnid = sglnsize * id ;
 
     // initialize small chunck of buffer within each thread
-    initialize(nsize, &dblbuf[nid], 1.0);
+    initialize<double>(dblnsize, &dblbuf[dblnid], 1.0);
 
 #if ERT_GPU
-    double *d_dblbuf;
-    cudaMalloc((void **)&d_dblbuf, nsize*sizeof(double));
-    cudaMemset(d_dblbuf, 0, nsize*sizeof(double));
+    double *d_dblbuf = setDeviceData<double>(dblnsize);
+    float *d_sglbuf = setDeviceData<float>(sglnsize);
     cudaDeviceSynchronize();
 #endif
 
@@ -134,14 +148,14 @@ int main(int argc, char *argv[]) {
     int mem_accesses_per_elem;
 
     n = ERT_WORKING_SET_MIN;
-    while (n <= nsize) { // working set - nsize
-      uint64_t ntrials = nsize / n;
+    while (n <= dblnsize) { // working set - nsize
+      uint64_t ntrials = dblnsize / n;
       if (ntrials < 1)
         ntrials = 1;
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
-        cudaMemcpy(d_dblbuf, &dblbuf[nid], n*sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_dblbuf, &dblbuf[dblnid], n*sizeof(double), cudaMemcpyHostToDevice);
         cudaDeviceSynchronize();
 #endif
 
@@ -212,7 +226,7 @@ int main(int argc, char *argv[]) {
         } // print
 
 #if ERT_GPU
-        cudaMemcpy(&dblbuf[nid], d_dblbuf, n*sizeof(double), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&dblbuf[dblnid], d_dblbuf, n*sizeof(double), cudaMemcpyDeviceToHost);
         cudaDeviceSynchronize();
 #endif
       } // working set - ntrials

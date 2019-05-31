@@ -9,9 +9,22 @@ extern int gpu_threads;
 #define KERNEL1(a,b,c)   ((a) = (b) + (c))
 #define KERNEL2(a,b,c)   ((a) = (a)*(b) + (c))
 
+template <typename T>
 void initialize(uint64_t nsize,
-                double* __restrict__ array,
-                double value);
+                T* __restrict__ A,
+                T value)
+{
+#ifdef ERT_INTEL
+  __assume_aligned(A, ERT_ALIGN);
+#elif __xlC__
+  __alignx(ERT_ALIGN, A);
+#endif
+
+  uint64_t i;
+  for (i = 0; i < nsize; ++i) {
+    A[i] = value;
+  }
+}
 
 #ifdef ERT_GPU
 void gpuKernel(uint64_t nsize,
