@@ -1,6 +1,11 @@
 #include "driver.h"
 #include "kernel1.h"
 
+#include <iostream>
+#include <chrono>
+
+using namespace std;
+
 double getTime()
 {
   double time;
@@ -61,6 +66,7 @@ T* setDeviceData(uint64_t nsize) {
   T* buf;
   cudaMalloc((void **)&buf, nsize*sizeof(T));
   cudaMemset(buf, 0, nsize*sizeof(T));
+  cudaDeviceSynchronize();
   return buf;
 }
 
@@ -117,8 +123,124 @@ inline void launchKernel(uint64_t t,
   gpuKernel<T>(n, t, d_ptr, bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
   cudaDeviceSynchronize();
 #else          // C-code
-  kernel<T>(n, t, &h_ptr[nid], &bytes_per_elem_ptr, &mem_accesses_per_elem_ptr);
+  kernel<T>(n, t, &h_ptr[nid], bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
 #endif
+}
+
+template <typename T>
+void run(uint64_t psize, T* buf, int rank, int nprocs) {
+  int nthreads = 1;
+  int id = 0;
+#ifdef ERT_OPENMP
+  #pragma omp parallel private(id)
+#endif
+
+  {
+#ifdef ERT_OPENMP
+    id = omp_get_thread_num();
+    nthreads = omp_get_num_threads();
+#endif
+
+#if ERT_GPU
+    setGPU(id);
+#endif
+    uint64_t nsize = psize / nthreads;
+    nsize = nsize & (~(ERT_ALIGN-1));
+    nsize = nsize / sizeof(T);
+    uint64_t nid = nsize * id ;
+
+    // initialize small chunck of buffer within each thread
+    initialize<T>(nsize, &buf[nid], 1.0);
+
+#if ERT_GPU
+    T *d_buf = setDeviceData<T>(nsize);
+#endif
+
+    double startTime, endTime;
+    uint64_t n,nNew;
+    uint64_t t;
+    int bytes_per_elem;
+    int mem_accesses_per_elem;
+
+    n = ERT_WORKING_SET_MIN;
+    while (n <= nsize) { // working set - nsize
+      uint64_t ntrials = nsize / n;
+      if (ntrials < 1)
+        ntrials = 1;
+
+      for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
+#ifdef ERT_GPU
+        host2device<T>(buf, d_buf, nid, n);
+#endif
+
+#ifdef ERT_MPI
+  #ifdef ERT_OPENMP        
+        #pragma omp master
+  #endif
+        {
+          MPI_Barrier(MPI_COMM_WORLD);
+        }
+#endif // ERT_MPI
+
+#ifdef ERT_OPENMP
+        #pragma omp barrier
+#endif
+
+        if ((id == 0) && (rank==0)) {
+          startTime = getTime();
+        }
+
+        auto start = std::chrono::high_resolution_clock::now();
+        launchKernel<T>(t, nid, buf, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
+
+#ifdef ERT_OPENMP
+        #pragma omp barrier
+#endif
+
+#ifdef ERT_MPI
+  #ifdef ERT_OPENMP
+        #pragma omp master
+  #endif
+        {
+          MPI_Barrier(MPI_COMM_WORLD);
+        }
+#endif // ERT_MPI
+
+        auto end = std::chrono::high_resolution_clock::now();
+        if ((id == 0) && (rank == 0)) {
+          endTime = getTime();
+          //double seconds = (double)(endTime - startTime);
+          double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+          uint64_t working_set_size = n * nthreads * nprocs;
+          uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
+          uint64_t total_flops = t * working_set_size * ERT_FLOP;
+
+          print(working_set_size, bytes_per_elem, t, seconds, total_bytes, total_flops);
+        } // print
+
+#if ERT_GPU
+        device2host<T>(buf, d_buf, nid, n);
+#endif
+      } // working set - ntrials
+
+      nNew = 1.1 * n;
+      if (nNew == n) {
+        nNew = n+1;
+      }
+
+      n = nNew;
+    } // working set - nsize
+
+#if ERT_GPU
+    cudaFree(d_buf);
+
+    if (cudaGetLastError() != cudaSuccess) {
+      printf("Last cuda error: %s\n",cudaGetErrorString(cudaGetLastError()));
+    }
+
+    cudaDeviceReset();
+#endif
+  } // parallel region
 }
 
 int main(int argc, char *argv[]) {
@@ -134,8 +256,6 @@ int main(int argc, char *argv[]) {
 
   int rank = 0;
   int nprocs = 1;
-  int nthreads = 1;
-  int id = 0;
 #ifdef ERT_MPI
   int provided = -1;
   int requested;
@@ -158,125 +278,22 @@ int main(int argc, char *argv[]) {
 
 #ifdef ERT_GPU
   double *              dblbuf = alloc<double>(PSIZE);
+  float *              sglbuf = alloc<float>(PSIZE);
 #else
   double * __restrict__ dblbuf = alloc<double>(PSIZE);
+  float * __restrict__ sglbuf = alloc<float>(PSIZE);
 #endif
   checkBuffer(dblbuf);
+  checkBuffer(sglbuf);
 
-#ifdef ERT_OPENMP
-  #pragma omp parallel private(id)
-#endif
-
-  {
-#ifdef ERT_OPENMP
-    id = omp_get_thread_num();
-    nthreads = omp_get_num_threads();
-#endif
-
-#if ERT_GPU
-    setGPU(id);
-#endif
-    uint64_t nsize = PSIZE / nthreads;
-    nsize = nsize & (~(ERT_ALIGN-1));
-
-    uint64_t dblnsize = nsize / sizeof(double);
-    uint64_t dblnid = dblnsize * id ;
-
-    // initialize small chunck of buffer within each thread
-    initialize<double>(dblnsize, &dblbuf[dblnid], 1.0);
-
-#if ERT_GPU
-    double *d_dblbuf = setDeviceData<double>(dblnsize);
-    cudaDeviceSynchronize();
-#endif
-
-    double startTime, endTime;
-    uint64_t n,nNew;
-    uint64_t t;
-    int bytes_per_elem;
-    int mem_accesses_per_elem;
-
-    n = ERT_WORKING_SET_MIN;
-    while (n <= dblnsize) { // working set - nsize
-      uint64_t ntrials = dblnsize / n;
-      if (ntrials < 1)
-        ntrials = 1;
-
-      for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
-#ifdef ERT_GPU
-        host2device<double>(dblbuf, d_dblbuf, dblnid, n);
-#endif
-
-#ifdef ERT_MPI
-  #ifdef ERT_OPENMP        
-        #pragma omp master
-  #endif
-        {
-          MPI_Barrier(MPI_COMM_WORLD);
-        }
-#endif // ERT_MPI
-
-#ifdef ERT_OPENMP
-        #pragma omp barrier
-#endif
-
-        if ((id == 0) && (rank==0)) {
-          startTime = getTime();
-        }
-
-        launchKernel<double>(t, dblnid, dblbuf, d_dblbuf, &bytes_per_elem, &mem_accesses_per_elem);
-
-#ifdef ERT_OPENMP
-        #pragma omp barrier
-#endif
-
-#ifdef ERT_MPI
-  #ifdef ERT_OPENMP
-        #pragma omp master
-  #endif
-        {
-          MPI_Barrier(MPI_COMM_WORLD);
-        }
-#endif // ERT_MPI
-
-        if ((id == 0) && (rank == 0)) {
-          endTime = getTime();
-          double seconds = (double)(endTime - startTime);
-          uint64_t working_set_size = n * nthreads * nprocs;
-          uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
-          uint64_t total_flops = t * working_set_size * ERT_FLOP;
-
-          print(working_set_size, bytes_per_elem, t, seconds, total_bytes, total_flops);
-        } // print
-
-#if ERT_GPU
-        device2host(dblbuf, d_dblbuf, dblnid, n);
-#endif
-      } // working set - ntrials
-
-      nNew = 1.1 * n;
-      if (nNew == n) {
-        nNew = n+1;
-      }
-
-      n = nNew;
-    } // working set - nsize
-
-#if ERT_GPU
-    cudaFree(d_dblbuf);
-
-    if (cudaGetLastError() != cudaSuccess) {
-      printf("Last cuda error: %s\n",cudaGetErrorString(cudaGetLastError()));
-    }
-
-    cudaDeviceReset();
-#endif
-  } // parallel region
+  run<double>(PSIZE, dblbuf, rank, nprocs);
 
 #ifdef ERT_INTEL
   _mm_free(dblbuf);
+  _mm_free(sglbuf);
 #else
   free(dblbuf);
+  free(sglbuf);
 #endif
 
 #ifdef ERT_MPI
