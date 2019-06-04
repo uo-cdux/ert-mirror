@@ -1,11 +1,6 @@
 #include "driver.h"
 #include "kernel1.h"
 
-#include <iostream>
-#include <chrono>
-
-using namespace std;
-
 double getTime()
 {
   double time;
@@ -23,7 +18,7 @@ double getTime()
 }
 
 template <typename T>
-void checkBuffer(T *buffer) {
+inline void checkBuffer(T *buffer) {
   if (buffer == nullptr) {
     fprintf(stderr, "Out of memory!\n");
     exit(1);
@@ -39,7 +34,15 @@ T* alloc(uint64_t psize) {
 #endif
 }
 
-void setGPU(const int id) {
+template <typename T>
+T* setDeviceData(uint64_t nsize) {
+  T* buf;
+  cudaMalloc((void **)&buf, nsize*sizeof(T));
+  cudaMemset(buf, 0, nsize*sizeof(T));
+  return buf;
+}
+
+inline void setGPU(const int id) {
   int num_gpus = 0;
   int gpu;
   int gpu_id;
@@ -62,73 +65,30 @@ void setGPU(const int id) {
 }
 
 template <typename T>
-T* setDeviceData(uint64_t nsize) {
-  T* buf;
-  cudaMalloc((void **)&buf, nsize*sizeof(T));
-  cudaMemset(buf, 0, nsize*sizeof(T));
-  cudaDeviceSynchronize();
-  return buf;
-}
-
-inline void print(uint64_t working_set_size,
-           int bytes_per_elem,
-           uint64_t t,
-           double seconds,
-           uint64_t total_bytes,
-           uint64_t total_flops)
+inline void launchKernel(
+  uint64_t n,
+  uint64_t t,
+  uint64_t nid,
+  T *buf,
+  T *d_buf,
+  int *bytes_per_elem_ptr,
+  int *mem_accesses_per_elem_ptr)
 {
-#if ERT_GPU
-          printf("%12lld %12lld %15.3lf %12lld %12lld\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
-#else
-          printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
-#endif
-}
-
-template <typename T>
-inline void host2device (T* h_ptr, T* d_ptr, uint64_t nid, uint64_t n) {
-  cudaMemcpy(d_ptr, &h_ptr[nid], n*sizeof(T), cudaMemcpyHostToDevice);
-  cudaDeviceSynchronize();
-}
-
-template <typename T>
-inline void device2host (T* h_ptr, T* d_ptr, uint64_t nid, uint64_t n) {
-  cudaMemcpy(&h_ptr[nid], d_ptr, n*sizeof(T), cudaMemcpyDeviceToHost);
-  cudaDeviceSynchronize();
-}
-
-template <typename T>
-inline void launchKernel(uint64_t t,
-                         uint64_t nid,
-                         T* h_ptr,
-                         T* d_ptr,
-                         int* bytes_per_elem_ptr,
-                         int* mem_accesses_per_elem_ptr)
-{
-  uint64_t n = ERT_WORKING_SET_MIN;
 #if    ERT_AVX // AVX intrinsics for Edison(intel xeon)
-  avxKernel(n, t, &h_ptr[nid]);
+  avxKernel(n, t, &buf[nid]);
 #elif  ERT_KNC // KNC intrinsics for Babbage(intel mic)
-  kncKernel(n, t, &h_ptr[nid]);
+  kncKernel(n, t, &buf[nid]);
 #elif  ERT_GPU // CUDA code
-  gpuKernel<T>(n, t, d_ptr, bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
+  gpuKernel<T>(n, t, d_buf, bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
   cudaDeviceSynchronize();
 #else          // C-code
-  kernel<T>(n, t, &h_ptr[nid], bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
+  kernel<T>(n, t, &buf[nid], bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
 #endif
 }
 
 template <typename T>
-void run(uint64_t psize, T* buf, int rank, int nprocs) {
+void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
+{
   int nthreads = 1;
   int id = 0;
 #ifdef ERT_OPENMP
@@ -144,7 +104,8 @@ void run(uint64_t psize, T* buf, int rank, int nprocs) {
 #if ERT_GPU
     setGPU(id);
 #endif
-    uint64_t nsize = psize / nthreads;
+        
+    uint64_t nsize = PSIZE / nthreads;
     nsize = nsize & (~(ERT_ALIGN-1));
     nsize = nsize / sizeof(T);
     uint64_t nid = nsize * id ;
@@ -154,6 +115,7 @@ void run(uint64_t psize, T* buf, int rank, int nprocs) {
 
 #if ERT_GPU
     T *d_buf = setDeviceData<T>(nsize);
+    cudaDeviceSynchronize();
 #endif
 
     double startTime, endTime;
@@ -170,7 +132,8 @@ void run(uint64_t psize, T* buf, int rank, int nprocs) {
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
-        host2device<T>(buf, d_buf, nid, n);
+        cudaMemcpy(d_buf, &buf[nid], n*sizeof(T), cudaMemcpyHostToDevice);
+        cudaDeviceSynchronize();
 #endif
 
 #ifdef ERT_MPI
@@ -189,9 +152,8 @@ void run(uint64_t psize, T* buf, int rank, int nprocs) {
         if ((id == 0) && (rank==0)) {
           startTime = getTime();
         }
-
-        auto start = std::chrono::high_resolution_clock::now();
-        launchKernel<T>(t, nid, buf, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
+        
+        launchKernel<T>(n, t, nid, buf, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
 
 #ifdef ERT_OPENMP
         #pragma omp barrier
@@ -206,20 +168,34 @@ void run(uint64_t psize, T* buf, int rank, int nprocs) {
         }
 #endif // ERT_MPI
 
-        auto end = std::chrono::high_resolution_clock::now();
         if ((id == 0) && (rank == 0)) {
           endTime = getTime();
-          //double seconds = (double)(endTime - startTime);
-          double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+          double seconds = (double)(endTime - startTime);
           uint64_t working_set_size = n * nthreads * nprocs;
           uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
           uint64_t total_flops = t * working_set_size * ERT_FLOP;
 
-          print(working_set_size, bytes_per_elem, t, seconds, total_bytes, total_flops);
+          // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
+#if ERT_GPU
+          printf("%12lld %12lld %15.3lf %12lld %12lld\n",
+                  working_set_size * bytes_per_elem,
+                  t,
+                  seconds * 1000000,
+                  total_bytes,
+                  total_flops);
+#else
+          printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n",
+                  working_set_size * bytes_per_elem,
+                  t,
+                  seconds * 1000000,
+                  total_bytes,
+                  total_flops);
+#endif
         } // print
 
 #if ERT_GPU
-        device2host<T>(buf, d_buf, nid, n);
+        cudaMemcpy(&buf[nid], d_buf, n*sizeof(T), cudaMemcpyDeviceToHost);
+        cudaDeviceSynchronize();
 #endif
       } // working set - ntrials
 
@@ -277,23 +253,18 @@ int main(int argc, char *argv[]) {
   uint64_t PSIZE = TSIZE / nprocs;
 
 #ifdef ERT_GPU
-  double *              dblbuf = alloc<double>(PSIZE);
-  float *              sglbuf = alloc<float>(PSIZE);
+  double *              buf = alloc<double>(PSIZE);
 #else
-  double * __restrict__ dblbuf = alloc<double>(PSIZE);
-  float * __restrict__ sglbuf = alloc<float>(PSIZE);
+  double * __restrict__ buf = alloc<double>(PSIZE);
 #endif
-  checkBuffer(dblbuf);
-  checkBuffer(sglbuf);
+  checkBuffer(buf);
 
-  run<double>(PSIZE, dblbuf, rank, nprocs);
+  run<double>(PSIZE, buf, rank, nprocs);
 
 #ifdef ERT_INTEL
-  _mm_free(dblbuf);
-  _mm_free(sglbuf);
+  _mm_free(buf);
 #else
-  free(dblbuf);
-  free(sglbuf);
+  free(buf);
 #endif
 
 #ifdef ERT_MPI

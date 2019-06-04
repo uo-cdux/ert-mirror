@@ -93,9 +93,6 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
   }
 }
 
-int gpu_blocks;
-int gpu_threads;
-
 template <typename T>
 void gpuKernel(uint64_t nsize,
                uint64_t ntrials,
@@ -112,13 +109,13 @@ void gpuKernel(uint64_t nsize,
   __alignx(ERT_ALIGN, A);
 #endif
 
-  block_stride<T><<<gpu_blocks, gpu_threads>>> (ntrials, nsize, A);
+  block_stride<T><<< gpu_blocks, gpu_threads>>> (ntrials, nsize, A);
 }
 #else
 template <typename T>
 void kernel(uint64_t nsize,
             uint64_t ntrials,
-            T* __restrict__ array,
+            T* __restrict__ A,
             int* bytes_per_elem,
             int* mem_accesses_per_elem)
 {
