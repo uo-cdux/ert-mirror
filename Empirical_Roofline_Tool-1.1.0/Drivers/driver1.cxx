@@ -253,18 +253,24 @@ int main(int argc, char *argv[]) {
   uint64_t PSIZE = TSIZE / nprocs;
 
 #ifdef ERT_GPU
-  double *              buf = alloc<double>(PSIZE);
+  double *              dblbuf = alloc<double>(PSIZE);
+  float *              sglbuf = alloc<float>(PSIZE);
 #else
-  double * __restrict__ buf = alloc<double>(PSIZE);
+  double * __restrict__ dblbuf = alloc<double>(PSIZE);
+  float * __restrict__ sglbuf = alloc<float>(PSIZE);
 #endif
-  checkBuffer(buf);
+  checkBuffer(dblbuf);
+  checkBuffer(sglbuf);
 
-  run<double>(PSIZE, buf, rank, nprocs);
+  run<double>(PSIZE, dblbuf, rank, nprocs);
+  run<float>(PSIZE, sglbuf, rank, nprocs);
 
 #ifdef ERT_INTEL
-  _mm_free(buf);
+  _mm_free(dblbuf);
+  _mm_free(sglbuf);
 #else
-  free(buf);
+  free(dblbuf);
+  free(sglbuf);
 #endif
 
 #ifdef ERT_MPI
