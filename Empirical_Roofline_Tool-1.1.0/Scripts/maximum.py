@@ -12,17 +12,19 @@ for l in os.sys.stdin:
 
   if len(m) > 0 and m[0] == "META_DATA":
     found_metadata = True
-
-    print lastLine,
-    print
+    print ""
 
   if found_metadata:
     print l,
   else:
     if len(m) == 11 and m[0][0] != "#":
       if m[0] != field0:
-        if lastLine != "":
-          print lastLine,
         field0 = m[0]
       lastLine = l
-
+    elif len(m) == 1 and m[0].islower():
+      print l,
+      lastLine = ""
+    elif len(m) == 0:
+      if lastLine != "":
+        print lastLine,
+      

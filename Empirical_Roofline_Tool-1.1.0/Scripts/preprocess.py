@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 
-import os,math
+import os,math,enum
 
+class PRECISION(enum.Enum):
+  half   = 0
+  single = 1
+  double = 2
+  
 class INPUT:
   size = 5
 
@@ -40,20 +45,32 @@ for l in os.sys.stdin:
   if len(m) == 2 and m[0] == "MPI_PROCS":
     procs = int(m[1])
 
+  if len(m) == 1:
+    if m[0] == "half":
+      precision = PRECISION.half
+    elif m[0] == "single":
+      precision = PRECISION.single
+    elif m[0] == "double":
+      precision = PRECISION.double
+
   if not is_metadata and len(m) == INPUT.size:
     try:
+      pkey = int(precision.value)
+      if not data.has_key(pkey):
+        data[pkey] = dict()
+
       wkey = int(m[INPUT.wkey])
-      if not data.has_key(wkey):
-        data[wkey] = dict()
+      if not data[pkey].has_key(wkey):
+        data[pkey][wkey] = dict()
 
       tkey = int(m[INPUT.tkey])
-      if not data[wkey].has_key(tkey):
-        data[wkey][tkey] = STATS.size*[0]
+      if not data[pkey][wkey].has_key(tkey):
+        data[pkey][wkey][tkey] = STATS.size*[0]
         first = True
       else:
         first = False
 
-      entry = data[wkey][tkey]
+      entry = data[pkey][wkey][tkey]
 
       msec  = float(m[INPUT.msec ])
       bytes = int  (m[INPUT.bytes])
@@ -75,44 +92,51 @@ for l in os.sys.stdin:
 
     except ValueError:
       pass
-
-for wkey in sorted(data.iterkeys()):
-  tdict = data[wkey]
-  for tkey in sorted(tdict.iterkeys()):
-    stats = tdict[tkey]
-
-    msec_min = stats[STATS.msec_min]
-
-    msec_med = sorted(stats[STATS.msec_med])
-    msec_med = msec_med[len(msec_med)/2]
-
-    msec_max = stats[STATS.msec_max]
-
-    gbytes = float(stats[STATS.bytes])/GIGA
-    gflops = float(stats[STATS.flops])/GIGA
-
-    if msec_min != 0.0 and msec_med != 0.0 and msec_max != 0.0:
-      GB_sec_min = gbytes/(msec_max/MEGA)
-      GB_sec_med = gbytes/(msec_med/MEGA)
-      GB_sec_max = gbytes/(msec_min/MEGA)
-
-      GFLOP_sec_min = gflops/(msec_max/MEGA)
-      GFLOP_sec_med = gflops/(msec_med/MEGA)
-      GFLOP_sec_max = gflops/(msec_min/MEGA)
-
-      print wkey,          \
-            tkey,          \
-            msec_min,      \
-            msec_med,      \
-            msec_max,      \
-            GB_sec_min,    \
-            GB_sec_med,    \
-            GB_sec_max,    \
-            GFLOP_sec_min, \
-            GFLOP_sec_med, \
-            GFLOP_sec_max
-
+for pkey in sorted(data.iterkeys()):
+  if pkey == PRECISION.half.value:
+    print "half"
+  elif pkey == PRECISION.single.value:
+    print "single"
+  elif pkey == PRECISION.double.value:
+    print "double"
   print ""
+  for wkey in sorted(data[pkey].iterkeys()):
+    tdict = data[pkey][wkey]
+    for tkey in sorted(tdict.iterkeys()):
+      stats = tdict[tkey]
+
+      msec_min = stats[STATS.msec_min]
+
+      msec_med = sorted(stats[STATS.msec_med])
+      msec_med = msec_med[len(msec_med)/2]
+
+      msec_max = stats[STATS.msec_max]
+
+      gbytes = float(stats[STATS.bytes])/GIGA
+      gflops = float(stats[STATS.flops])/GIGA
+
+      if msec_min != 0.0 and msec_med != 0.0 and msec_max != 0.0:
+        GB_sec_min = gbytes/(msec_max/MEGA)
+        GB_sec_med = gbytes/(msec_med/MEGA)
+        GB_sec_max = gbytes/(msec_min/MEGA)
+
+        GFLOP_sec_min = gflops/(msec_max/MEGA)
+        GFLOP_sec_med = gflops/(msec_med/MEGA)
+        GFLOP_sec_max = gflops/(msec_min/MEGA)
+
+        print wkey,          \
+              tkey,          \
+              msec_min,      \
+              msec_med,      \
+              msec_max,      \
+              GB_sec_min,    \
+              GB_sec_med,    \
+              GB_sec_max,    \
+              GFLOP_sec_min, \
+              GFLOP_sec_med, \
+              GFLOP_sec_max
+
+    print ""
 
 print "META_DATA"
 for k,m in metadata.items():

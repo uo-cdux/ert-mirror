@@ -93,10 +93,10 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
 {
   if (std::is_floating_point<T>::value) {
     if (sizeof(T) == 4) {
-      printf("Single\n");
+      printf("single\n");
     }
     else if (sizeof(T) == 8) {
-      printf("Double\n");
+      printf("double\n");
     }
   }
   else {
