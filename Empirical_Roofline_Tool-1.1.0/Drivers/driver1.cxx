@@ -1,6 +1,8 @@
 #include "driver.h"
 #include "kernel1.h"
 
+#include <type_traits>
+
 double getTime()
 {
   double time;
@@ -89,6 +91,18 @@ inline void launchKernel(
 template <typename T>
 void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
 {
+  if (std::is_floating_point<T>::value) {
+    if (sizeof(T) == 4) {
+      printf("Single\n");
+    }
+    else if (sizeof(T) == 8) {
+      printf("Double\n");
+    }
+  }
+  else {
+    fprintf(stderr, "Data type not supported.\n");
+    exit(1);
+  }
   int nthreads = 1;
   int id = 0;
 #ifdef ERT_OPENMP
