@@ -93,12 +93,7 @@ for l in os.sys.stdin:
     except ValueError:
       pass
 for pkey in sorted(data.iterkeys()):
-  if pkey == PRECISION.half.value:
-    print "half"
-  elif pkey == PRECISION.single.value:
-    print "single"
-  elif pkey == PRECISION.double.value:
-    print "double"
+  print (PRECISION(pkey).name)
   print ""
   for wkey in sorted(data[pkey].iterkeys()):
     tdict = data[pkey][wkey]

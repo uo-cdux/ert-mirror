@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 
-import os,sys,math
+import os,sys,math,enum
 
+class PRECISION(enum.Enum):
+  half   = 0
+  single = 1
+  double = 2
+  
 def smooth(x,y):
   xs = x[:]
   ys = y[:]
@@ -17,16 +22,42 @@ def smooth(x,y):
 
 lines = os.sys.stdin.readlines()
 
+begin = 0
+end   = 0
+
+data = dict()
+
 for i in xrange(0,len(lines)):
+  m = lines[i].split()
+  if (len(m) == 1 and m[0] in PRECISION.__members__) or len(m) == 0:
+    end = i
+    if end > begin:
+      pkey = int(precision.value)
+      if not data.has_key(pkey):
+        data[pkey] = lines[begin:end]
+    if len(m):
+      precision = PRECISION[m[0]]
+    begin = i+1
+
   if lines[i] == "META_DATA\n":
     break
 
 meta_lines = lines[i:]
-lines = lines[:i-1]
+
+for pkey in sorted(data.iterkeys()):
+  temp_lines = data[pkey]
+  if pkey == PRECISION.double.value:
+    lines = temp_lines
+  gflops = [float(line.split()[9]) for line in temp_lines]
+  maxgflops = max(gflops)
+  print "  %7.2f" % maxgflops,
+  init = PRECISION(pkey).name[0].upper()
+  print init+"P",
+  print "GFLOPs"
+print
 
 x      = [float(line.split()[0]) for line in lines]
 band   = [float(line.split()[6]) for line in lines]
-gflops = [float(line.split()[9]) for line in lines]
 
 weight = 0.0
 for i in xrange(0,len(x)-1):
@@ -47,8 +78,6 @@ band = band[start:]
 minband = min(band)
 maxband = max(band)
 
-maxgflops = max(gflops)
-
 fraction = 1.05
 
 samples = 10000
@@ -66,9 +95,6 @@ for i in xrange(0,samples):
     if v >= cband/fraction and v <= cband*fraction:
       totals[i] += v
       counts[i] += 1
-
-print "  %7.2f GFLOPs" % maxgflops
-print
 
 band_list = [[1000*maxband,1000]]
 
