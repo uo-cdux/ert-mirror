@@ -526,13 +526,17 @@ class ert_core:
     return(out_meta,out_sub_meta1,out_sub_meta2)
 
   def build_database(self,gflop,gbyte):
-    gflop0 = gflop[0].split()
-
     emp_gflops_data = []
-    emp_gflops_data.append([gflop0[1],float(gflop0[0])])
+    for h in xrange(0,len(gflop)):
+      gflop_info = gflop[h].split()
+      if len(gflop_info) == 4 and gflop_info[2] == "GFLOPs":
+        name = gflop_info[1] + " " + gflop_info[2]
+        emp_gflops_data.append([name,float(gflop_info[0])])
+      if len(gflop_info) == 1 and gflop_info[0] == "META_DATA":
+        break
 
     emp_gflops_metadata = {}
-    for metadata in gflop[1:]:
+    for metadata in gflop[h:]:
       parts = metadata.partition(" ")
       key = parts[0].strip()
       if key != "META_DATA":
@@ -671,9 +675,17 @@ class ert_core:
       json.dump(database,database_file,indent=3)
 
       database_file.close()
+      
+      for i in xrange(0,len(gflop_lines)):
+        if gflop_lines[i] == "META_DATA":
+          break
 
-      line = gflop_lines[0].split()
-      gflops_emp = [float(line[0]),line[1]]
+      num_peak = i
+      gflops_emp = num_peak * [0]
+
+      for i in xrange(0,num_peak):
+        line = gflop_lines[i].split()
+        gflops_emp[i] = [float(line[0]),line[1],line[2]]
 
       for i in xrange(0,len(gbyte_lines)):
         if gbyte_lines[i] == "META_DATA":
@@ -686,9 +698,11 @@ class ert_core:
         line = gbyte_lines[i].split()
         gbytes_emp[i] = [float(line[0]),line[1]]
 
-      x = num_mem * [0.0]
-      for i in xrange(0,len(gbytes_emp)):
-        x[i] = gflops_emp[0]/gbytes_emp[i][0]
+      x = [[0 for i in range(num_mem)] for j in range(num_peak)]
+
+      for i in xrange(0,num_mem):
+        for j in xrange(0,num_peak):
+          x[i][j] = gflops_emp[j][0]/gbytes_emp[i][0]
 
       if self.options.gnuplot:
         basename = "roofline"
@@ -720,12 +734,13 @@ class ert_core:
           sys.stderr.write("Unable to open '%s'...\n" % loadname)
           return 1
 
-        xgflops = 2.0
-        label = '%.1f %s/sec (Maximum)' % (gflops_emp[0],gflops_emp[1])
-        plotfile.write("set label '%s' at %.7le,%.7le left textcolor rgb '#000080'\n" % (label,xgflops,1.2*gflops_emp[0]))
+        for h in xrange(0,num_peak):
+          xgflops = 2.0
+          label = '%.1f %s/sec (%s Maximum)' % (gflops_emp[h][0],gflops_emp[h][2],gflops_emp[h][1])
+          plotfile.write("set label '%s' at %.7le,%.7le left textcolor rgb '#000080'\n" % (label,xgflops,1.2*gflops_emp[h][0]))
 
         xleft  = xmin
-        xright = x[0]
+        xright = x[0][0]
 
         xmid = math.sqrt(xleft * xright)
         ymid = gbytes_emp[0][0] * xmid
@@ -738,7 +753,7 @@ class ert_core:
         alpha = 1.065
 
         label_over = True
-        for i in xrange(0,len(gbytes_emp)):
+        for i in xrange(0,num_mem):
           if i > 0:
             if label_over and gbytes_emp[i-1][0] / gbytes_emp[i][0] < 1.5:
               label_over = False
@@ -765,10 +780,13 @@ class ert_core:
 
         plotfile.write("plot \\\n")
 
-        for i in xrange(0,len(gbytes_emp)):
-          plotfile.write("     (x <= %.7le ? %.7le * x : 1/0) lc 1 lw 2,\\\n" % (x[i],gbytes_emp[i][0]))
-
-        plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2\n" % (x[0],gflops_emp[0]))
+        for i in xrange(0,num_mem):
+          plotfile.write("     (x <= %.7le ? %.7le * x : 1/0) lc 1 lw 2,\\\n" % (x[i][0],gbytes_emp[i][0]))
+        for j in xrange(0,num_peak):
+          if j == num_peak-1:
+            break
+          plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2,\\\n" % (x[0][j],gflops_emp[j][0]))
+        plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2\n" % (x[0][j],gflops_emp[j][0]))
 
         plotfile.close()
 
