@@ -4,6 +4,8 @@
 #include "rep.h"
 
 #ifdef ERT_GPU
+#include <cuda_fp16.h>
+
 extern int gpu_blocks;
 extern int gpu_threads;
 #endif
@@ -48,11 +50,22 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
     end_idx = nsize;
   }
 
-  T alpha = 0.5;
+  T alpha, const_beta, C;
+  if (sizeof(T) == 8) {
+    alpha = 0.5;
+    const_beta = 0.8;
+    C = 1.0 - 1e-8;
+  }
+  else {
+    alpha = 0.5f;
+    const_beta = 0.8f;
+    C = 1.0f - 1.0e-8f;
+  }
+
   uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
     for (i = start_idx; i < end_idx; i += stride_idx) {
-      T beta = 0.8;
+      T beta = const_beta;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
       KERNEL1(beta,A[i],alpha);
 #endif
@@ -89,7 +102,7 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
 
       A[i] = beta;
     }
-    alpha = alpha * (1 - 1e-8);
+    alpha = alpha * C;
   }
 }
 

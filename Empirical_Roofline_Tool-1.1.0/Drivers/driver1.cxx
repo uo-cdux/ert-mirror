@@ -99,6 +99,9 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
       printf("double\n");
     }
   }
+  else if (sizeof(T) == 2) {
+    printf("half\n");
+  }
   else {
     fprintf(stderr, "Data type not supported.\n");
     exit(1);
@@ -125,7 +128,14 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
     uint64_t nid = nsize * id ;
 
     // initialize small chunck of buffer within each thread
-    initialize<T>(nsize, &buf[nid], 1.0);
+    T value;
+    if (sizeof(T) == 8) {
+      value = 1.0;
+    }
+    else {
+      value = 1.0f;
+    }
+    initialize<T>(nsize, &buf[nid], value);
 
 #if ERT_GPU
     T *d_buf = setDeviceData<T>(nsize);
@@ -266,22 +276,32 @@ int main(int argc, char *argv[]) {
   uint64_t TSIZE = ERT_MEMORY_MAX;
   uint64_t PSIZE = TSIZE / nprocs;
 
-#ifdef ERT_GPU
+#if ERT_GPU
+  half *              hlfbuf = alloc<half>(PSIZE);
   double *              dblbuf = alloc<double>(PSIZE);
   float *              sglbuf = alloc<float>(PSIZE);
 #else
   double * __restrict__ dblbuf = alloc<double>(PSIZE);
   float * __restrict__ sglbuf = alloc<float>(PSIZE);
 #endif
+
+#if ERT_GPU
+  checkBuffer(hlfbuf);
+#endif
   checkBuffer(dblbuf);
   checkBuffer(sglbuf);
 
+#if ERT_GPU
+  run<half>(PSIZE, hlfbuf, rank, nprocs);
+#endif
   run<double>(PSIZE, dblbuf, rank, nprocs);
   run<float>(PSIZE, sglbuf, rank, nprocs);
 
 #ifdef ERT_INTEL
   _mm_free(dblbuf);
   _mm_free(sglbuf);
+#elif ERT_GPU
+  free(hlfbuf);
 #else
   free(dblbuf);
   free(sglbuf);
