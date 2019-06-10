@@ -698,8 +698,8 @@ class ert_core:
         line = gbyte_lines[i].split()
         gbytes_emp[i] = [float(line[0]),line[1]]
 
-      x = [[0 for i in range(num_mem)] for j in range(num_peak)]
-
+      x = [[0 for i in range(num_peak)] for j in range(num_mem)]
+      
       for i in xrange(0,num_mem):
         for j in xrange(0,num_peak):
           x[i][j] = gflops_emp[j][0]/gbytes_emp[i][0]
