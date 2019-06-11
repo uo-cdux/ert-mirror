@@ -22,7 +22,7 @@ prevLine = ""
 for line in sys.stdin:
   parts = line.split()
   if len(parts) == 3 and parts[2] == "GFLOPs":
-    if len(prevLine.split()) == 2:
+    if len(prevLine.split()) != 3:
       files[key] = data
       data = []
       key = key + 1
