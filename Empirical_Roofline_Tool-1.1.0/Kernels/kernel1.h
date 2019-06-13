@@ -54,7 +54,7 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
   if (sizeof(T) == 8) {
     alpha = 0.5;
     const_beta = 0.8;
-    C = 1.0 - 1e-8;
+    C = 1.0 - 1.0e-8;
   }
   else {
     alpha = 0.5f;

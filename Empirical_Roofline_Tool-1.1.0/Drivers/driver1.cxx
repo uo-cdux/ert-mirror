@@ -142,7 +142,13 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
     cudaDeviceSynchronize();
 #endif
 
+#ifdef ERT_GPU
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+#else
     double startTime, endTime;
+#endif
     uint64_t n,nNew;
     uint64_t t;
     int bytes_per_elem;
@@ -150,6 +156,7 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
 
     n = ERT_WORKING_SET_MIN;
     while (n <= nsize) { // working set - nsize
+
       uint64_t ntrials = nsize / n;
       if (ntrials < 1)
         ntrials = 1;
@@ -174,7 +181,11 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
 #endif
 
         if ((id == 0) && (rank==0)) {
+#ifdef ERT_GPU
+          cudaEventRecord(start);
+#else
           startTime = getTime();
+#endif
         }
         
         launchKernel<T>(n, t, nid, buf, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
@@ -191,36 +202,44 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
           MPI_Barrier(MPI_COMM_WORLD);
         }
 #endif // ERT_MPI
+        
+        if ((id == 0) && (rank==0)) {
+#ifdef ERT_GPU
+          cudaEventRecord(stop);
+#else
+          endTime = getTime();
+#endif
+        }
+
+#if ERT_GPU
+        cudaMemcpy(&buf[nid], d_buf, n*sizeof(T), cudaMemcpyDeviceToHost);
+        cudaDeviceSynchronize();
+#endif
 
         if ((id == 0) && (rank == 0)) {
-          endTime = getTime();
-          double seconds = (double)(endTime - startTime);
           uint64_t working_set_size = n * nthreads * nprocs;
           uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
           uint64_t total_flops = t * working_set_size * ERT_FLOP;
+          double seconds;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
 #if ERT_GPU
-          printf("%12lld %12lld %15.3lf %12lld %12lld\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
+          cudaEventSynchronize(stop);
+          float milliseconds = 0.f;
+          cudaEventElapsedTime(&milliseconds, start, stop);
+          seconds = static_cast<double>(milliseconds) / 1000.;
 #else
+          endTime = getTime();
+          seconds = endTime - startTime;
+#endif
           printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n",
                   working_set_size * bytes_per_elem,
                   t,
                   seconds * 1000000,
                   total_bytes,
                   total_flops);
-#endif
         } // print
 
-#if ERT_GPU
-        cudaMemcpy(&buf[nid], d_buf, n*sizeof(T), cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
-#endif
       } // working set - ntrials
 
       nNew = 1.1 * n;
@@ -292,7 +311,7 @@ int main(int argc, char *argv[]) {
   checkBuffer(sglbuf);
 
 #if ERT_GPU
-  run<half>(PSIZE, hlfbuf, rank, nprocs);
+  //run<half>(PSIZE, hlfbuf, rank, nprocs);
 #endif
   run<double>(PSIZE, dblbuf, rank, nprocs);
   run<float>(PSIZE, sglbuf, rank, nprocs);
