@@ -40,11 +40,13 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, double *A)
     end_idx = nsize;
   }
 
-  double alpha = 0.5;
+  double epsilon = 1e-6;
+  double factor = (1.0 - epsilon);
+  double alpha = -epsilon;
   uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
     for (i = start_idx; i < end_idx; i += stride_idx) {
-      double beta = 0.8;
+      double beta = A[i] * factor;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
       KERNEL1(beta,A[i],alpha);
 #endif
@@ -81,7 +83,7 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, double *A)
 
       A[i] = beta;
     }
-    alpha = alpha * (1 - 1e-8);
+    alpha *= factor;
   }
 }
 
@@ -121,12 +123,14 @@ void kernel(uint64_t nsize,
   __alignx(ERT_ALIGN, A);
 #endif
 
-  double alpha = 0.5;
+  double epsilon = 1e-6;
+  double factor = (1.0 - epsilon);
+  double alpha = -epsilon;
   uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
 #pragma unroll (8)
     for (i = 0; i < nsize; ++i) {
-      double beta = 0.8;
+      double beta = A[i] * factor;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
       KERNEL1(beta,A[i],alpha);
 #endif
@@ -163,7 +167,7 @@ void kernel(uint64_t nsize,
 
       A[i] = beta;
     }
-    alpha = alpha * (1 - 1e-8);
+    alpha *= factor;
   }
 }
 #endif
