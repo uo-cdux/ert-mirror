@@ -112,9 +112,6 @@ int main(int argc, char *argv[]) {
     nsize = nsize / sizeof(double);
     uint64_t nid =  nsize * id ;
 
-    // initialize small chunck of buffer within each thread
-    initialize(nsize, &buf[nid], 1.0);
-
 #if ERT_GPU
     double *d_buf;
     cudaMalloc((void **)&d_buf, nsize*sizeof(double));
@@ -133,6 +130,9 @@ int main(int argc, char *argv[]) {
       uint64_t ntrials = nsize / n;
       if (ntrials < 1)
         ntrials = 1;
+
+      // initialize small chunck of buffer within each thread
+      initialize(n, &buf[nid], 1.0);
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
