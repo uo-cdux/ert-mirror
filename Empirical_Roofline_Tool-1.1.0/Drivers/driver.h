@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <inttypes.h>
+#include <iostream>
 
 #ifdef ERT_OPENMP
   #include <omp.h>

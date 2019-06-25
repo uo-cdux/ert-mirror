@@ -1,8 +1,6 @@
 #include "driver.h"
 #include "kernel1.h"
 
-#include <type_traits>
-
 double getTime()
 {
   double time;
@@ -99,7 +97,7 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
       printf("double\n");
     }
   }
-  else if (sizeof(T) == 2) {
+  else if (std::is_same<T, half2>::value) {
     printf("half\n");
   }
   else {
@@ -128,13 +126,7 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
     uint64_t nid = nsize * id ;
 
     // initialize small chunck of buffer within each thread
-    T value;
-    if (sizeof(T) == 8) {
-      value = 1.0;
-    }
-    else {
-      value = 1.0f;
-    }
+    double value = 1.0;
     initialize<T>(nsize, &buf[nid], value);
 
 #if ERT_GPU
@@ -219,7 +211,13 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
         if ((id == 0) && (rank == 0)) {
           uint64_t working_set_size = n * nthreads * nprocs;
           uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
-          uint64_t total_flops = t * working_set_size * ERT_FLOP;
+          uint64_t total_flops;
+          if (std::is_same<T, half2>::value) {
+            total_flops = t * working_set_size * ERT_FLOP * 2u;
+          }
+          else {
+            total_flops = t * working_set_size * ERT_FLOP;
+          }
           double seconds;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
@@ -296,7 +294,7 @@ int main(int argc, char *argv[]) {
   uint64_t PSIZE = TSIZE / nprocs;
 
 #if ERT_GPU
-  half *              hlfbuf = alloc<half>(PSIZE);
+  half2 *              hlfbuf = alloc<half2>(PSIZE);
   double *              dblbuf = alloc<double>(PSIZE);
   float *              sglbuf = alloc<float>(PSIZE);
 #else
@@ -311,7 +309,7 @@ int main(int argc, char *argv[]) {
   checkBuffer(sglbuf);
 
 #if ERT_GPU
-  //run<half>(PSIZE, hlfbuf, rank, nprocs);
+  run<half2>(PSIZE, hlfbuf, rank, nprocs);
 #endif
   run<double>(PSIZE, dblbuf, rank, nprocs);
   run<float>(PSIZE, sglbuf, rank, nprocs);

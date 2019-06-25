@@ -1,6 +1,9 @@
 #ifndef KERNEL1_H
 #define KERNEL1_H
 
+#include <type_traits>
+#include <typeinfo>
+
 #include "rep.h"
 
 #ifdef ERT_GPU
@@ -8,15 +11,36 @@
 
 extern int gpu_blocks;
 extern int gpu_threads;
+
+#define KERNEL2HALF(a,b,c)   ((a) = __hadd2((b),(c)))
+#define KERNEL4HALF(a,b,c)   ((a) = __hadd2(__hmul2((a),(b)),(c)))
 #endif
 
 #define KERNEL1(a,b,c)   ((a) = (b) + (c))
 #define KERNEL2(a,b,c)   ((a) = (a)*(b) + (c))
 
-template <typename T>
+
+// If data type is "half2"
+template <typename T, typename std::enable_if<std::is_same<T, half2>::value, int>::type = 0>
 void initialize(uint64_t nsize,
                 T* __restrict__ A,
-                T value)
+                double value)
+{
+#if __xlC__
+  __alignx(ERT_ALIGN, A);
+#endif
+
+  uint64_t i;
+  for (i = 0; i < nsize; ++i) {
+    A[i] = __float2half2_rn(value);
+  }
+}
+
+// If data type is not "half2"
+template <typename T, typename std::enable_if<!std::is_same<T, half2>::value, int>::type = 0>
+void initialize(uint64_t nsize,
+                T* __restrict__ A,
+                double value)
 {
 #ifdef ERT_INTEL
   __assume_aligned(A, ERT_ALIGN);
@@ -31,7 +55,74 @@ void initialize(uint64_t nsize,
 }
 
 #ifdef ERT_GPU
-template <typename T>
+// If data type is "half2"
+template <typename T, typename std::enable_if<std::is_same<T, half2>::value, int>::type = 0>
+__global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
+{
+  uint64_t total_thr = gridDim.x * blockDim.x;
+  uint64_t elem_per_thr = (nsize + (total_thr-1)) / total_thr;
+  uint64_t blockOffset = blockIdx.x * blockDim.x; 
+
+  uint64_t start_idx  = blockOffset + threadIdx.x;
+  uint64_t end_idx    = start_idx + elem_per_thr * total_thr;
+  uint64_t stride_idx = total_thr;
+
+  if (start_idx > nsize) {
+    start_idx = nsize;
+  }
+
+  if (end_idx > nsize) {
+    end_idx = nsize;
+  }
+
+  T alpha, const_beta, C;
+  alpha = __float2half2_rn(0.5f);
+  const_beta = __float2half2_rn(0.8f);
+  C = __float2half2_rn(1.0f - 1.0e-8f);
+
+  uint64_t i, j;
+  for (j = 0; j < ntrials; ++j) {
+    for (i = start_idx; i < end_idx; i += stride_idx) {
+      T beta = const_beta;
+#if (ERT_FLOP & 2) == 2       /* add 2 flops */
+      KERNEL2HALF(beta,A[i],alpha);
+#endif
+#if (ERT_FLOP & 4) == 4       /* add 4 flops */
+      KERNEL4HALF(beta,A[i],alpha);
+#endif
+#if (ERT_FLOP & 8) == 8       /* add 8 flops */
+      REP2(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 16) == 16     /* add 16 flops */
+      REP4(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 32) == 32     /* add 32 flops */
+      REP8(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 64) == 64     /* add 64 flops */
+      REP16(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 128) == 128   /* add 128 flops */
+      REP32(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 256) == 256   /* add 256 flops */
+      REP64(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 512) == 512   /* add 512 flops */
+      REP128(KERNEL4HALF(beta,A[i],alpha));
+#endif
+#if (ERT_FLOP & 1024) == 1024 /* add 1024 flops */
+      REP256(KERNEL4HALF(beta,A[i],alpha));
+#endif
+
+      A[i] = beta;
+    }
+    alpha = __hmul2(alpha, C);
+  }
+}
+
+// If data type is not "half2"
+template <typename T, typename std::enable_if<!std::is_same<T, half2>::value, int>::type = 0>
 __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
 {
   uint64_t total_thr = gridDim.x * blockDim.x;
