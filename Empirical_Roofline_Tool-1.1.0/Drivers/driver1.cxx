@@ -211,13 +211,7 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
         if ((id == 0) && (rank == 0)) {
           uint64_t working_set_size = n * nthreads * nprocs;
           uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
-          uint64_t total_flops;
-          if (std::is_same<T, half2>::value) {
-            total_flops = t * working_set_size * ERT_FLOP * 2u;
-          }
-          else {
-            total_flops = t * working_set_size * ERT_FLOP;
-          }
+          uint64_t total_flops = t * working_set_size * ERT_FLOP;
           double seconds;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth

@@ -13,7 +13,7 @@ extern int gpu_blocks;
 extern int gpu_threads;
 
 #define KERNEL2HALF(a,b,c)   ((a) = __hadd2((b),(c)))
-#define KERNEL4HALF(a,b,c)   ((a) = __hadd2(__hmul2((a),(b)),(c)))
+#define KERNEL4HALF(a,b,c)   ((a) = __hfma2((a),(b),(c)))
 #endif
 
 #define KERNEL1(a,b,c)   ((a) = (b) + (c))
