@@ -57,15 +57,15 @@ void initialize(uint64_t nsize,
 #ifdef ERT_GPU
 // If data type is "half2"
 template <typename T, typename std::enable_if<std::is_same<T, half2>::value, int>::type = 0>
-__global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
+__global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
 {
-  uint64_t total_thr = gridDim.x * blockDim.x;
-  uint64_t elem_per_thr = (nsize + (total_thr-1)) / total_thr;
-  uint64_t blockOffset = blockIdx.x * blockDim.x; 
+  uint32_t total_thr = gridDim.x * blockDim.x;
+  uint32_t elem_per_thr = (nsize + (total_thr-1)) / total_thr;
+  uint32_t blockOffset = blockIdx.x * blockDim.x; 
 
-  uint64_t start_idx  = blockOffset + threadIdx.x;
-  uint64_t end_idx    = start_idx + elem_per_thr * total_thr;
-  uint64_t stride_idx = total_thr;
+  uint32_t start_idx  = blockOffset + threadIdx.x;
+  uint32_t end_idx    = start_idx + elem_per_thr * total_thr;
+  uint32_t stride_idx = total_thr;
 
   if (start_idx > nsize) {
     start_idx = nsize;
@@ -80,7 +80,7 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
   const_beta = __float2half2_rn(0.8f);
   C = __float2half2_rn(1.0f - 1.0e-8f);
 
-  uint64_t i, j;
+  uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
     for (i = start_idx; i < end_idx; i += stride_idx) {
       T beta = const_beta;
@@ -123,15 +123,14 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
 
 // If data type is not "half2"
 template <typename T, typename std::enable_if<!std::is_same<T, half2>::value, int>::type = 0>
-__global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
+__global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
 {
-  uint64_t total_thr = gridDim.x * blockDim.x;
-  uint64_t elem_per_thr = (nsize + (total_thr-1)) / total_thr;
-  uint64_t blockOffset = blockIdx.x * blockDim.x; 
+  uint32_t total_thr = gridDim.x * blockDim.x;
+  uint32_t elem_per_thr = (nsize + (total_thr-1)) / total_thr;
 
-  uint64_t start_idx  = blockOffset + threadIdx.x;
-  uint64_t end_idx    = start_idx + elem_per_thr * total_thr;
-  uint64_t stride_idx = total_thr;
+  uint32_t start_idx  = blockIdx.x * blockDim.x + threadIdx.x;
+  uint32_t end_idx    = start_idx + elem_per_thr * total_thr;
+  uint32_t stride_idx = total_thr;
 
   if (start_idx > nsize) {
     start_idx = nsize;
@@ -153,7 +152,7 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
     C = 1.0f - 1.0e-8f;
   }
 
-  uint64_t i, j;
+  uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
     for (i = start_idx; i < end_idx; i += stride_idx) {
       T beta = const_beta;
@@ -198,8 +197,8 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, T *A)
 }
 
 template <typename T>
-void gpuKernel(uint64_t nsize,
-               uint64_t ntrials,
+void gpuKernel(uint32_t nsize,
+               uint32_t ntrials,
                T* __restrict__ A,
                int* bytes_per_elem,
                int* mem_accesses_per_elem)
@@ -233,7 +232,7 @@ void kernel(uint64_t nsize,
 #endif
 
   T alpha = 0.5;
-  uint64_t i, j;
+  uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
 #pragma unroll (8)
     for (i = 0; i < nsize; ++i) {
