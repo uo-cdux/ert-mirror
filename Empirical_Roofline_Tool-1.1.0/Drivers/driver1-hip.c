@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
         ntrials = 1;
 
       // initialize small chunck of buffer within each thread
-      initialize(n, &buf[nid], 1.0);
+      initialize(n, &buf[nid], -1.0);
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
         hipMemcpy(d_buf, &buf[nid], n*sizeof(double), hipMemcpyHostToDevice);

@@ -39,13 +39,13 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, double *A)
     end_idx = nsize;
   }
 
-  double epsilon = 1e-6;
-  double factor = (1.0 - epsilon);
+  // A needs to be initilized to -1 coming in
+  // And with alpha=2 and beta=1, A=-1 is preserved upon return
+  double alpha = 2.0;
   uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
-    double alpha = -epsilon;
     for (i = start_idx; i < end_idx; i += stride_idx) {
-      double beta = A[i] * factor;
+      double beta = 1.0;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
       KERNEL1(beta,A[i],alpha);
 #endif
@@ -80,9 +80,8 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, double *A)
       REP512(KERNEL2(beta,A[i],alpha));
 #endif
 
-      A[i] = beta;
+      A[i] = -beta;
     }
-    alpha *= factor;
   }
 }
 
