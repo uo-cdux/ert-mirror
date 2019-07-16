@@ -16,6 +16,10 @@ extern int gpu_threads;
 #define KERNEL4HALF(a,b,c)   ((a) = __hfma2((a),(b),(c)))
 #endif
 
+#ifndef __NVCC__
+#define half2 char16_t
+#endif 
+
 #define KERNEL1(a,b,c)   ((a) = (b) + (c))
 #define KERNEL2(a,b,c)   ((a) = (a)*(b) + (c))
 

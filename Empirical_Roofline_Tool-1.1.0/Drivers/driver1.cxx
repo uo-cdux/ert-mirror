@@ -34,6 +34,7 @@ T* alloc(uint64_t psize) {
 #endif
 }
 
+#ifdef ERT_GPU
 template <typename T>
 T* setDeviceData(uint64_t nsize) {
   T* buf;
@@ -63,6 +64,7 @@ inline void setGPU(const int id) {
   cudaGetDevice(&gpu_id);
   cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, gpu_id);
 }
+#endif
 
 template <typename T>
 inline void launchKernel(
@@ -87,7 +89,7 @@ inline void launchKernel(
 }
 
 template <typename T>
-void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
+void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
 {
   if (std::is_floating_point<T>::value) {
     if (sizeof(T) == 4) {
@@ -104,7 +106,6 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
     fprintf(stderr, "Data type not supported.\n");
     exit(1);
   }
-  int nthreads = 1;
   int id = 0;
 #ifdef ERT_OPENMP
   #pragma omp parallel private(id)
@@ -113,7 +114,8 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
   {
 #ifdef ERT_OPENMP
     id = omp_get_thread_num();
-    nthreads = omp_get_num_threads();
+    *nthreads_ptr = omp_get_num_threads();
+    int nthreads = *nthreads_ptr;
 #endif
 
 #if ERT_GPU
@@ -132,6 +134,8 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs)
 #if ERT_GPU
     T *d_buf = setDeviceData<T>(nsize);
     cudaDeviceSynchronize();
+#else
+    T *d_buf = nullptr;
 #endif
 
 #ifdef ERT_GPU
@@ -267,6 +271,7 @@ int main(int argc, char *argv[]) {
 
   int rank = 0;
   int nprocs = 1;
+  int nthreads = 1;
 #ifdef ERT_MPI
   int provided = -1;
   int requested;
@@ -303,20 +308,22 @@ int main(int argc, char *argv[]) {
   checkBuffer(sglbuf);
 
 #if ERT_GPU
-  run<half2>(PSIZE, hlfbuf, rank, nprocs);
+  run<half2>(PSIZE, hlfbuf, rank, nprocs, &nthreads);
 #endif
-  run<double>(PSIZE, dblbuf, rank, nprocs);
-  run<float>(PSIZE, sglbuf, rank, nprocs);
+  run<double>(PSIZE, dblbuf, rank, nprocs, &nthreads);
+  run<float>(PSIZE, sglbuf, rank, nprocs, &nthreads);
 
 #ifdef ERT_INTEL
   _mm_free(dblbuf);
   _mm_free(sglbuf);
-#elif ERT_GPU
-  free(hlfbuf);
 #else
   free(dblbuf);
   free(sglbuf);
 #endif
+
+#if ERT_GPU
+  free(hlfbuf);
+#endif 
 
 #ifdef ERT_MPI
   MPI_Barrier(MPI_COMM_WORLD);
