@@ -1,0 +1,8 @@
+# IDE files
+*.swp
+
+# setup.py files
+*.pyc
+
+# Result files
+*/Results.*
