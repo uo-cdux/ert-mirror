@@ -10,17 +10,17 @@ ERT_MPI_CFLAGS
 ERT_MPI_LDFLAGS
 
 ERT_OPENMP         True
-ERT_OPENMP_CFLAGS  -fopenmp -funroll-loops -ftree-vectorize -ftree-loop-optimize -ftree-loop-vectorize -faligned-new -msse -msse2 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma
-ERT_OPENMP_LDFLAGS -fopenmp -funroll-loops -ftree-vectorize -ftree-loop-optimize -ftree-loop-vectorize -faligned-new -msse -msse2 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma
+ERT_OPENMP_CFLAGS  -fopenmp
+ERT_OPENMP_LDFLAGS -fopenmp
 
 ERT_FLOPS   1,2,4,8,16
 ERT_ALIGN   32
 
 ERT_CC      g++
-ERT_CFLAGS  -O3
+ERT_CFLAGS  -O3 -funroll-loops -ftree-vectorize -ftree-loop-optimize -ftree-loop-vectorize -faligned-new -msse -msse2 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma
 
 ERT_LD      g++
-ERT_LDFLAGS 
+ERT_LDFLAGS -fopenmp -funroll-loops -ftree-vectorize -ftree-loop-optimize -ftree-loop-vectorize -faligned-new -msse -msse2 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma
 ERT_LDLIBS  
 
 ERT_PRECISION FP64
@@ -30,7 +30,7 @@ ERT_RUN  export OMP_NUM_THREADS=ERT_OPENMP_THREADS; export OMP_PLACES=threads; e
 ERT_PROCS_THREADS  12
 ERT_OPENMP_THREADS 1-12
 
-ERT_NUM_EXPERIMENTS 1
+ERT_NUM_EXPERIMENTS 5
 
 ERT_MEMORY_MAX 1073741824
 
