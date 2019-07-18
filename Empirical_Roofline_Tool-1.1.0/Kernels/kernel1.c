@@ -46,7 +46,7 @@ __global__ void block_stride(uint64_t ntrials, uint64_t nsize, double *A)
   uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
     for (i = start_idx; i < end_idx; i += stride_idx) {
-      double beta = 1.0
+      double beta = 1.0;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
       KERNEL1(beta,A[i],alpha);
 #endif
