@@ -24,6 +24,7 @@ extern int gpu_threads;
 #define KERNEL2(a,b,c)   ((a) = (a)*(b) + (c))
 
 
+#ifdef ERT_GPU
 // If data type is "half2"
 template <typename T, typename std::enable_if<std::is_same<T, half2>::value, int>::type = 0>
 void initialize(uint64_t nsize,
@@ -39,6 +40,7 @@ void initialize(uint64_t nsize,
     A[i] = __float2half2_rn(value);
   }
 }
+#endif
 
 // If data type is not "half2"
 template <typename T, typename std::enable_if<!std::is_same<T, half2>::value, int>::type = 0>
