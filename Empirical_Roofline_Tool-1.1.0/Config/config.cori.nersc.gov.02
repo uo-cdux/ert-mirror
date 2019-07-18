@@ -16,12 +16,14 @@ ERT_OPENMP_LDFLAGS -qopenmp
 ERT_FLOPS   1,2,4,8,16,32,64
 ERT_ALIGN   64
 
-ERT_CC      cc
+ERT_CC      CC
 ERT_CFLAGS  -O3 -fno-alias -fno-fnalias -xMIC-AVX512 -DERT_INTEL
 
-ERT_LD      cc
+ERT_LD      CC
 ERT_LDFLAGS 
-ERT_LDLIBS  
+ERT_LDLIBS
+
+ERT_PRECISION FP32,FP64
 
 ERT_RUN     export SLURM_CORES=$(( 256 / ERT_MPI_PROCS )); export OMP_PLACES=threads; export OMP_PROC_BIND=spread; export OMP_NUM_THREADS=ERT_OPENMP_THREADS; srun -n ERT_MPI_PROCS -c $SLURM_CORES --cpu_bind=cores ./ERT_CODE
 

@@ -16,12 +16,14 @@ ERT_OPENMP_LDFLAGS -qopenmp
 ERT_FLOPS   1,2,4,8,16,64,128
 ERT_ALIGN   64
 
-ERT_CC      icc
+ERT_CC      icpc
 ERT_CFLAGS  -O3 -fno-alias -fno-fnalias -xCore-AVX512 -qopt-zmm-usage=high -DERT_INTEL
 
-ERT_LD      icc
+ERT_LD      icpc
 ERT_LDFLAGS 
 ERT_LDLIBS  
+
+ERT_PRECISION FP64
 
 ERT_RUN     export OMP_NUM_THREADS=ERT_OPENMP_THREADS; export OMP_PROC_BIND=spread; export OMP_PLACES=threads; mpirun -np ERT_MPI_PROCS ERT_CODE
 

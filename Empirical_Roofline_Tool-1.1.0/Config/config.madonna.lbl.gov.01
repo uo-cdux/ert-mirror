@@ -16,12 +16,14 @@ ERT_OPENMP_LDFLAGS -openmp
 ERT_FLOPS   1,2,4,8,16
 ERT_ALIGN   32
 
-ERT_CC      icc
+ERT_CC      icpc
 ERT_CFLAGS  -O3 -msse3 -axSSE3 -xSSE3 -fno-alias -fno-fnalias -DERT_INTEL
 
-ERT_LD      icc
+ERT_LD      icpc
 ERT_LDFLAGS 
 ERT_LDLIBS
+
+ERT_PRECISION FP64
 
 ERT_RUN     export OMP_NUM_THREADS=ERT_OPENMP_THREADS; mpirun -np ERT_MPI_PROCS ERT_CODE
 

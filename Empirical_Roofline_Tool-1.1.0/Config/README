@@ -7,6 +7,12 @@ ERT on various machines to obtain an empirical roofline measurement:
   config.babbage.nersc.gov.02
     Knight's Corner (KNC) node testing only the MIC and not the host
 
+  config.cori.nersc.gov.01
+    Cray XC40 nodes - 2 x 16-core Intel E5-2698 v3 'Haswell' processors
+
+  config.cori.nersc.gov.02
+    Cray XC40 nodes - 68-core Intel Xeon Phi 7250 'Knights Landing' processors
+
   config.edison.nersc.gov.01
     Cray XC30 node - 2 x 12-core Intel "Ivy Bridge" processors
 
@@ -15,6 +21,18 @@ ERT on various machines to obtain an empirical roofline measurement:
 
   config.madonna.lbl.gov.02
     Linux workstation, Only OpenMP (8-core Intel Xeon CPU E5530, 2.40 GHz)
+
+  config.maeve.lbl.gov
+    Maeve i7-6800K 2 x 6 'Broadway' processors
+
+  config.pegasus.uoregon.edu
+    2 x 18-core Intel Xeon Gold 6140 'Skylake' processors
+
+  config.summit.ornl.gov
+    NVIDIA V100 'Volta' GPU
+
+  config.summitdev.ornl.gov
+    NVIDIA P100 'Pascal' GPU
 
   config.mira.alcf.anl.gov.01
     IBM Blue Gene/Q node - 16 1600 MHz PowerPC A2 cores
@@ -26,6 +44,9 @@ ERT on various machines to obtain an empirical roofline measurement:
   config.titan.ccs.ornl.gov.02
     Cray XK7 node - Test only the GPU processor on the node,
                     NVIDIA Kepler™accelerator GPU
+
+  config.voltar.uoregon.edu
+    NVIDIA V100 'Volta' GPU
 
 The goal of these configuration files is to obtain a good empirical
 roofline measurement.  That said, these are only examples and it may be
