@@ -118,7 +118,11 @@ class ert_core:
           value = line[1:]
 
           if len(target) > 0:
-            self.dict["CONFIG"][target] = value
+            if target == "ERT_PRECISION":
+              prec_list = value[0].split(",")
+              self.dict["CONFIG"][target] = prec_list
+            else:
+              self.dict["CONFIG"][target] = value
 
     if "ERT_MPI" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_MPI"] = [False]
@@ -128,6 +132,9 @@ class ert_core:
 
     if "ERT_GPU" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_GPU"] = [False]
+      
+    if "ERT_PRECISION" not in self.dict["CONFIG"]:
+      self.dict["CONFIG"]["ERT_PRECISION"] = ["FP64"]
 
     self.results_dir = self.dict["CONFIG"]["ERT_RESULTS"][0]
     made_results = make_dir_if_needed(self.results_dir,"results",False)
@@ -226,6 +233,9 @@ class ert_core:
 
       if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
         command_prefix += ["-DERT_GPU"] + self.dict["CONFIG"]["ERT_GPU_CFLAGS"]
+
+      for p in self.dict["CONFIG"]["ERT_PRECISION"]:
+        command_prefix += ["-DERT_%s" % p]
 
       command = command_prefix + \
                 ["-c","%s/Drivers/%s.cxx" % (self.exe_path,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
