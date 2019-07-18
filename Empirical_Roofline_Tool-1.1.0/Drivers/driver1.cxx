@@ -91,20 +91,22 @@ inline void launchKernel(
 template <typename T>
 void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
 {
-  if (std::is_floating_point<T>::value) {
-    if (sizeof(T) == 4) {
-      printf("single\n");
+  if (rank == 0) {
+    if (std::is_floating_point<T>::value) {
+      if (sizeof(T) == 4) {
+        printf("single\n");
+      }
+      else if (sizeof(T) == 8) {
+        printf("double\n");
+      }
     }
-    else if (sizeof(T) == 8) {
-      printf("double\n");
+    else if (std::is_same<T, half2>::value) {
+      printf("half\n");
     }
-  }
-  else if (std::is_same<T, half2>::value) {
-    printf("half\n");
-  }
-  else {
-    fprintf(stderr, "Data type not supported.\n");
-    exit(1);
+    else {
+      fprintf(stderr, "Data type not supported.\n");
+      exit(1);
+    }
   }
   int id = 0;
 #ifdef ERT_OPENMP
@@ -115,13 +117,13 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
 #ifdef ERT_OPENMP
     id = omp_get_thread_num();
     *nthreads_ptr = omp_get_num_threads();
-    int nthreads = *nthreads_ptr;
 #endif
 
 #if ERT_GPU
     setGPU(id);
 #endif
         
+    int nthreads = *nthreads_ptr;
     uint64_t nsize = PSIZE / nthreads;
     nsize = nsize & (~(ERT_ALIGN-1));
     nsize = nsize / sizeof(T);
@@ -292,63 +294,72 @@ int main(int argc, char *argv[]) {
   uint64_t TSIZE = ERT_MEMORY_MAX;
   uint64_t PSIZE = TSIZE / nprocs;
 
-#if ERT_GPU
+#ifdef ERT_GPU
+#ifdef ERT_FP16
   half2 *              hlfbuf = alloc<half2>(PSIZE);
-  double *              dblbuf = alloc<double>(PSIZE);
+  checkBuffer(hlfbuf);
+  run<half2>(PSIZE, hlfbuf, rank, nprocs, &nthreads);
+  free(hlfbuf);
+#endif
+#endif
+
+#ifdef ERT_FP32
+#ifdef ERT_GPU
   float *              sglbuf = alloc<float>(PSIZE);
 #else
-  double * __restrict__ dblbuf = alloc<double>(PSIZE);
   float * __restrict__ sglbuf = alloc<float>(PSIZE);
 #endif
-
-#if ERT_GPU
-  checkBuffer(hlfbuf);
-#endif
-  checkBuffer(dblbuf);
   checkBuffer(sglbuf);
-
-#if ERT_GPU
-  run<half2>(PSIZE, hlfbuf, rank, nprocs, &nthreads);
-#endif
-  run<double>(PSIZE, dblbuf, rank, nprocs, &nthreads);
   run<float>(PSIZE, sglbuf, rank, nprocs, &nthreads);
-
 #ifdef ERT_INTEL
-  _mm_free(dblbuf);
   _mm_free(sglbuf);
 #else
-  free(dblbuf);
   free(sglbuf);
 #endif
+#endif
 
-#if ERT_GPU
-  free(hlfbuf);
-#endif 
+#ifdef ERT_FP64
+#ifdef ERT_GPU
+  double *              dblbuf = alloc<double>(PSIZE);
+#else
+  double * __restrict__ dblbuf = alloc<double>(PSIZE);
+#endif
+  checkBuffer(dblbuf);
+  run<double>(PSIZE, dblbuf, rank, nprocs, &nthreads);
+#ifdef ERT_INTEL
+  _mm_free(dblbuf);
+#else
+  free(dblbuf);
+#endif
+#endif
 
 #ifdef ERT_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
+  if (rank == 0) {
+    printf("\n");
+    printf("META_DATA\n");
+    printf("FLOPS          %d\n", ERT_FLOP);
+
+#ifdef ERT_MPI
+    printf("MPI_PROCS      %d\n", nprocs);
+#endif
+
+#ifdef ERT_OPENMP
+    printf("OPENMP_THREADS %d\n", nthreads);
+#endif
+
+#ifdef ERT_GPU
+    printf("GPU_BLOCKS     %d\n", gpu_blocks);
+    printf("GPU_THREADS    %d\n", gpu_threads);
+#endif
+  }
+
 #ifdef ERT_MPI
   MPI_Finalize();
 #endif
 
-  printf("\n");
-  printf("META_DATA\n");
-  printf("FLOPS          %d\n", ERT_FLOP);
-
-#ifdef ERT_MPI
-  printf("MPI_PROCS      %d\n", nprocs);
-#endif
-
-#ifdef ERT_OPENMP
-  printf("OPENMP_THREADS %d\n", nthreads);
-#endif
-
-#ifdef ERT_GPU
-  printf("GPU_BLOCKS     %d\n", gpu_blocks);
-  printf("GPU_THREADS    %d\n", gpu_threads);
-#endif
 
   return 0;
 }
