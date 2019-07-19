@@ -108,7 +108,7 @@ for i in xrange(samples-3,1,-1):
   else:
     if maxc > 1:
       value = float(totals[maxi])/max(1,counts[maxi])
-      if 1.25*value < float(band_list[-1][0])/band_list[-1][1]:
+      if 1.15*value < float(band_list[-1][0])/band_list[-1][1]:
         band_list.append([totals[maxi],counts[maxi]])
       else:
         band_list[-1][0] += totals[maxi]

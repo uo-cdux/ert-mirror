@@ -136,6 +136,9 @@ class ert_core:
     if "ERT_PRECISION" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_PRECISION"] = ["FP64"]
 
+    if "ERT_OCL" not in self.dict["CONFIG"]:
+      self.dict["CONFIG"]["ERT_OCL"] = [False]
+
     self.results_dir = self.dict["CONFIG"]["ERT_RESULTS"][0]
     made_results = make_dir_if_needed(self.results_dir,"results",False)
 
@@ -244,12 +247,13 @@ class ert_core:
         sys.stderr.write("Compiling driver, %s, failed\n" % self.dict["CONFIG"]["ERT_DRIVER"][0])
         return 1
 
-      command = command_prefix + \
-                ["-c","%s/Kernels/%s.cxx" % (self.exe_path,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
-                ["-o","%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])]
-      if execute_noshell(command,self.options.verbose > 1) != 0:
-        sys.stderr.write("Compiling kernel, %s, failed\n" % self.dict["CONFIG"]["ERT_KERNEL"][0])
-        return 1
+      if self.dict["CONFIG"]["ERT_OCL"][0] != "True":
+        command = command_prefix + \
+                  ["-c","%s/Kernels/%s.cxx" % (self.exe_path,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
+                  ["-o","%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])]
+        if execute_noshell(command,self.options.verbose > 1) != 0:
+          sys.stderr.write("Compiling kernel, %s, failed\n" % self.dict["CONFIG"]["ERT_KERNEL"][0])
+          return 1
 
       command = self.dict["CONFIG"]["ERT_LD"]      + \
                 self.dict["CONFIG"]["ERT_LDFLAGS"]
@@ -263,10 +267,16 @@ class ert_core:
       if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
         command += self.dict["CONFIG"]["ERT_GPU_LDFLAGS"]
 
-      command += ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
-                 ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
-                 self.dict["CONFIG"]["ERT_LDLIBS"]                                  + \
-                 ["-o","%s/%s.%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0])]
+      if self.dict["CONFIG"]["ERT_OCL"][0] != "True":
+        command += ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
+                   ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
+                   self.dict["CONFIG"]["ERT_LDLIBS"]                                  + \
+                   ["-o","%s/%s.%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0])]
+      else:
+        command += ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
+                   self.dict["CONFIG"]["ERT_LDLIBS"]                                  + \
+                   ["-o","%s/%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0])]
+ 
       if execute_noshell(command,self.options.verbose > 1) != 0:
         sys.stderr.write("Linking code failed\n")
         return 1
@@ -403,10 +413,12 @@ class ert_core:
                     command = command.replace("ERT_OPENMP_THREADS",str(openmp_threads))
                     command = command.replace("ERT_MPI_PROCS",str(mpi_procs))
 
-                    if self.dict["CONFIG"]["ERT_GPU"][0] != "True":
-                      command = command.replace("ERT_CODE","%s/%s.%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0]))
-                    else:
+                    if self.dict["CONFIG"]["ERT_OCL"][0] == "True":
+                      command = command.replace("ERT_CODE","%s/%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0]))
+                    elif self.dict["CONFIG"]["ERT_GPU"][0] == "True":
                       command = command.replace("ERT_CODE","%s/%s.%s %d %d" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0],gpu_blocks,gpu_threads))
+                    else:
+                      command = command.replace("ERT_CODE","%s/%s.%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0]))
 
                     command = "(" + command + ") > %s/try.ERT_TRY_NUM 2>&1 " % run_dir
 

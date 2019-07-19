@@ -129,9 +129,6 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
     nsize = nsize / sizeof(T);
     uint64_t nid = nsize * id ;
 
-    // initialize small chunck of buffer within each thread
-    double value = 1.0;
-    initialize<T>(nsize, &buf[nid], value);
 
 #if ERT_GPU
     T *d_buf = setDeviceData<T>(nsize);
@@ -158,6 +155,10 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
       uint64_t ntrials = nsize / n;
       if (ntrials < 1)
         ntrials = 1;
+
+      // initialize small chunck of buffer within each thread
+      double value = -1.0;
+      initialize<T>(nsize, &buf[nid], value);
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
@@ -294,13 +295,11 @@ int main(int argc, char *argv[]) {
   uint64_t TSIZE = ERT_MEMORY_MAX;
   uint64_t PSIZE = TSIZE / nprocs;
 
-#ifdef ERT_GPU
-#ifdef ERT_FP16
+#if ERT_GPU && ERT_FP16
   half2 *              hlfbuf = alloc<half2>(PSIZE);
   checkBuffer(hlfbuf);
   run<half2>(PSIZE, hlfbuf, rank, nprocs, &nthreads);
   free(hlfbuf);
-#endif
 #endif
 
 #ifdef ERT_FP32

@@ -81,10 +81,11 @@ __global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
     end_idx = nsize;
   }
 
-  T alpha, const_beta, C;
-  alpha = __float2half2_rn(0.5f);
-  const_beta = __float2half2_rn(0.8f);
-  C = __float2half2_rn(1.0f - 1.0e-8f);
+  // A needs to be initilized to -1 coming in
+  // And with alpha=2 and beta=1, A=-1 is preserved upon return
+  T alpha, const_beta
+  alpha = __float2half2_rn(2.0f);
+  const_beta = __float2half2_rn(1.0f);
 
   uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
@@ -121,9 +122,8 @@ __global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
       REP256(KERNEL4HALF(beta,A[i],alpha));
 #endif
 
-      A[i] = beta;
+      A[i] = -beta;
     }
-    alpha = __hmul2(alpha, C);
   }
 }
 
@@ -146,17 +146,11 @@ __global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
     end_idx = nsize;
   }
 
-  T alpha, const_beta, C;
-  if (sizeof(T) == 8) {
-    alpha = 0.5;
-    const_beta = 0.8;
-    C = 1.0 - 1.0e-8;
-  }
-  else {
-    alpha = 0.5f;
-    const_beta = 0.8f;
-    C = 1.0f - 1.0e-8f;
-  }
+  // A needs to be initilized to -1 coming in
+  // And with alpha=2 and beta=1, A=-1 is preserved upon return
+  T alpha, const_beta
+  alpha = 2.0;
+  beta = 1.0;
 
   uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
@@ -196,9 +190,8 @@ __global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
       REP512(KERNEL2(beta,A[i],alpha));
 #endif
 
-      A[i] = beta;
+      A[i] = -beta;
     }
-    alpha = alpha * C;
   }
 }
 
@@ -237,12 +230,14 @@ void kernel(uint64_t nsize,
   __alignx(ERT_ALIGN, A);
 #endif
 
-  T alpha = 0.5;
+  T epsilon = 1e-6;
+  T factor = (1.0 - epsilon);
+  T alpha = -epsilon;
   uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
 #pragma unroll (8)
     for (i = 0; i < nsize; ++i) {
-      T beta = 0.8;
+      T beta = A[i] * factor;
 #if (ERT_FLOP & 1) == 1       /* add 1 flop */
       KERNEL1(beta,A[i],alpha);
 #endif
@@ -279,7 +274,7 @@ void kernel(uint64_t nsize,
 
       A[i] = beta;
     }
-    alpha = alpha * (1 - 1e-8);
+    alpha *= factor;
   }
 }
 #endif
