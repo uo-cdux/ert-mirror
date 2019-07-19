@@ -37,6 +37,12 @@ ERT on various machines to obtain an empirical roofline measurement:
   config.mira.alcf.anl.gov.01
     IBM Blue Gene/Q node - 16 1600 MHz PowerPC A2 cores
 
+  config.odinson-hip.01
+    AMD Vega 10 XTX GPU with HIP
+
+  config.odinson-ocl.01
+    AMD Vega 10 XTX GPU with OpenCL
+
   config.titan.ccs.ornl.gov.01
     Cray XK7 node - Test only the host processor on the node,
                     16-core 2.2GHz AMD Opteron™ 6274 (Interlagos) processor

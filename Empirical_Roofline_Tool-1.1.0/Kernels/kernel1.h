@@ -83,7 +83,7 @@ __global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
 
   // A needs to be initilized to -1 coming in
   // And with alpha=2 and beta=1, A=-1 is preserved upon return
-  T alpha, const_beta
+  T alpha, const_beta;
   alpha = __float2half2_rn(2.0f);
   const_beta = __float2half2_rn(1.0f);
 
@@ -148,9 +148,9 @@ __global__ void block_stride(uint32_t ntrials, uint32_t nsize, T *A)
 
   // A needs to be initilized to -1 coming in
   // And with alpha=2 and beta=1, A=-1 is preserved upon return
-  T alpha, const_beta
+  T alpha, const_beta;
   alpha = 2.0;
-  beta = 1.0;
+  const_beta = 1.0;
 
   uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
