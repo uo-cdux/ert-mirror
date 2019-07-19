@@ -27,4 +27,3 @@ for l in os.sys.stdin:
     elif len(m) == 0:
       if lastLine != "":
         print lastLine,
-      

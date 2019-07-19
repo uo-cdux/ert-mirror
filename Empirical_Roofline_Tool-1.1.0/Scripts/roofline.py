@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os,sys
+from util import PRECISION
 
 max_gflops_value = 0.0
 max_weight = 0.0
@@ -35,7 +36,7 @@ for key in sorted(files.iterkeys()):
   index = 0
   for i in xrange(0,len(info)):
     m = info[i].split()
-    if len(m) == 3 and m[1] == "DP" and m[2] == "GFLOPs":
+    if len(m) == 3 and m[1] == PRECISION(3).name.upper() and m[2] == "GFLOPs":
       flops_value = float(m[0])
       if flops_value > max_gflops_value:
         max_gflops_value = flops_value

@@ -94,14 +94,14 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
   if (rank == 0) {
     if (std::is_floating_point<T>::value) {
       if (sizeof(T) == 4) {
-        printf("single\n");
+        printf("fp32\n");
       }
       else if (sizeof(T) == 8) {
-        printf("double\n");
+        printf("fp64\n");
       }
     }
     else if (std::is_same<T, half2>::value) {
-      printf("half\n");
+      printf("fp16\n");
     }
     else {
       fprintf(stderr, "Data type not supported.\n");

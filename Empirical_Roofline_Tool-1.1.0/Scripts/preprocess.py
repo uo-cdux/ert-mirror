@@ -1,39 +1,16 @@
 #!/usr/bin/env python
 
-import os,math,enum
+import os,sys
+from util import PRECISION,INPUT,STATS,MEGA,GIGA
 
-class PRECISION(enum.Enum):
-  half   = 0
-  single = 1
-  double = 2
-  
-class INPUT:
-  size = 5
-
-  wkey  = 0
-  tkey  = 1
-  msec  = 2
-  bytes = 3
-  flops = 4
-
-class STATS:
-  size = 5
-
-  msec_min = 0
-  msec_med = 1
-  msec_max = 2
-  bytes    = 3
-  flops    = 4
-
-MEGA =      1000*1000
-GIGA = 1000*1000*1000
-  
 data = dict()
-
 metadata = {}
 
 for l in os.sys.stdin:
   m = l.split()
+
+  if len(m) == 1 and m[0] in PRECISION.__members__:
+    precision = PRECISION[m[0]]
 
   is_metadata = False
   if len(m) > 0 and m[0].isupper():
@@ -44,14 +21,6 @@ for l in os.sys.stdin:
     threads = int(m[1])
   if len(m) == 2 and m[0] == "MPI_PROCS":
     procs = int(m[1])
-
-  if len(m) == 1:
-    if m[0] == "half":
-      precision = PRECISION.half
-    elif m[0] == "single":
-      precision = PRECISION.single
-    elif m[0] == "double":
-      precision = PRECISION.double
 
   if not is_metadata and len(m) == INPUT.size:
     try:

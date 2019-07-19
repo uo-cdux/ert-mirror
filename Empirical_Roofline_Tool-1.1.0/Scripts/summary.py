@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 
-import os,sys,math,enum
+import os,sys,math
+from util import PRECISION
 
-class PRECISION(enum.Enum):
-  half   = 0
-  single = 1
-  double = 2
-  
 def smooth(x,y):
   xs = x[:]
   ys = y[:]
@@ -46,13 +42,13 @@ meta_lines = lines[i:]
 
 for pkey in sorted(data.iterkeys()):
   temp_lines = data[pkey]
-  if pkey == PRECISION.double.value:
+  if pkey == PRECISION.fp64.value:
     lines = temp_lines
   gflops = [float(line.split()[9]) for line in temp_lines]
   maxgflops = max(gflops)
   print "  %7.2f" % maxgflops,
-  init = PRECISION(pkey).name[0].upper()
-  print init+"P",
+  init = PRECISION(pkey).name.upper()
+  print init,
   print "GFLOPs"
 print
 
