@@ -18,17 +18,19 @@ double getTime()
 }
 
 template <typename T>
-inline void checkBuffer(T *buffer) {
+inline void checkBuffer(T *buffer)
+{
   if (buffer == nullptr) {
     fprintf(stderr, "Out of memory!\n");
     exit(1);
   }
-} 
+}
 
 template <typename T>
-T* alloc(uint64_t psize) {
+T *alloc(uint64_t psize)
+{
 #ifdef ERT_INTEL
-  return  (T *)_mm_malloc(psize, ERT_ALIGN);
+  return (T *)_mm_malloc(psize, ERT_ALIGN);
 #else
   return (T *)malloc(psize);
 #endif
@@ -36,14 +38,16 @@ T* alloc(uint64_t psize) {
 
 #ifdef ERT_GPU
 template <typename T>
-T* setDeviceData(uint64_t nsize) {
-  T* buf;
-  cudaMalloc((void **)&buf, nsize*sizeof(T));
-  cudaMemset(buf, 0, nsize*sizeof(T));
+T *setDeviceData(uint64_t nsize)
+{
+  T *buf;
+  cudaMalloc((void **)&buf, nsize * sizeof(T));
+  cudaMemset(buf, 0, nsize * sizeof(T));
   return buf;
 }
 
-inline void setGPU(const int id) {
+inline void setGPU(const int id)
+{
   int num_gpus = 0;
   int gpu;
   int gpu_id;
@@ -57,7 +61,7 @@ inline void setGPU(const int id) {
 
   for (gpu = 0; gpu < num_gpus; gpu++) {
     cudaDeviceProp dprop;
-    cudaGetDeviceProperties(&dprop,gpu);
+    cudaGetDeviceProperties(&dprop, gpu);
   }
 
   cudaSetDevice(id % num_gpus);
@@ -67,68 +71,58 @@ inline void setGPU(const int id) {
 #endif
 
 template <typename T>
-inline void launchKernel(
-  uint64_t n,
-  uint64_t t,
-  uint64_t nid,
-  T *buf,
-  T *d_buf,
-  int *bytes_per_elem_ptr,
-  int *mem_accesses_per_elem_ptr)
+inline void launchKernel(uint64_t n, uint64_t t, uint64_t nid, T *buf, T *d_buf, int *bytes_per_elem_ptr,
+                         int *mem_accesses_per_elem_ptr)
 {
-#if    ERT_AVX // AVX intrinsics for Edison(intel xeon)
+#if ERT_AVX // AVX intrinsics for Edison(intel xeon)
   avxKernel(n, t, &buf[nid]);
-#elif  ERT_KNC // KNC intrinsics for Babbage(intel mic)
+#elif ERT_KNC // KNC intrinsics for Babbage(intel mic)
   kncKernel(n, t, &buf[nid]);
-#elif  ERT_GPU // CUDA code
+#elif ERT_GPU // CUDA code
   gpuKernel<T>(n, t, d_buf, bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
   cudaDeviceSynchronize();
-#else          // C-code
+#else         // C-code
   kernel<T>(n, t, &buf[nid], bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
 #endif
 }
 
 template <typename T>
-void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
+void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 {
   if (rank == 0) {
     if (std::is_floating_point<T>::value) {
       if (sizeof(T) == 4) {
         printf("fp32\n");
-      }
-      else if (sizeof(T) == 8) {
+      } else if (sizeof(T) == 8) {
         printf("fp64\n");
       }
-    }
-    else if (std::is_same<T, half2>::value) {
+    } else if (std::is_same<T, half2>::value) {
       printf("fp16\n");
-    }
-    else {
+    } else {
       fprintf(stderr, "Data type not supported.\n");
       exit(1);
     }
   }
   int id = 0;
 #ifdef ERT_OPENMP
-  #pragma omp parallel private(id)
+#pragma omp parallel private(id)
 #endif
 
   {
 #ifdef ERT_OPENMP
-    id = omp_get_thread_num();
+    id            = omp_get_thread_num();
     *nthreads_ptr = omp_get_num_threads();
 #endif
 
 #if ERT_GPU
     setGPU(id);
 #endif
-        
-    int nthreads = *nthreads_ptr;
-    uint64_t nsize = PSIZE / nthreads;
-    nsize = nsize & (~(ERT_ALIGN-1));
-    nsize = nsize / sizeof(T);
-    uint64_t nid = nsize * id ;
 
+    int nthreads   = *nthreads_ptr;
+    uint64_t nsize = PSIZE / nthreads;
+    nsize          = nsize & (~(ERT_ALIGN - 1));
+    nsize          = nsize / sizeof(T);
+    uint64_t nid   = nsize * id;
 
 #if ERT_GPU
     T *d_buf = setDeviceData<T>(nsize);
@@ -144,7 +138,7 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
 #else
     double startTime, endTime;
 #endif
-    uint64_t n,nNew;
+    uint64_t n, nNew;
     uint64_t t;
     int bytes_per_elem;
     int mem_accesses_per_elem;
@@ -162,63 +156,63 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
-        cudaMemcpy(d_buf, &buf[nid], n*sizeof(T), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_buf, &buf[nid], n * sizeof(T), cudaMemcpyHostToDevice);
         cudaDeviceSynchronize();
 #endif
 
 #ifdef ERT_MPI
-  #ifdef ERT_OPENMP        
-        #pragma omp master
-  #endif
+#ifdef ERT_OPENMP
+#pragma omp master
+#endif
         {
           MPI_Barrier(MPI_COMM_WORLD);
         }
 #endif // ERT_MPI
 
 #ifdef ERT_OPENMP
-        #pragma omp barrier
+#pragma omp barrier
 #endif
 
-        if ((id == 0) && (rank==0)) {
+        if ((id == 0) && (rank == 0)) {
 #ifdef ERT_GPU
           cudaEventRecord(start);
 #else
           startTime = getTime();
 #endif
         }
-        
+
         launchKernel<T>(n, t, nid, buf, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
 
 #ifdef ERT_OPENMP
-        #pragma omp barrier
+#pragma omp barrier
 #endif
 
 #ifdef ERT_MPI
-  #ifdef ERT_OPENMP
-        #pragma omp master
-  #endif
+#ifdef ERT_OPENMP
+#pragma omp master
+#endif
         {
           MPI_Barrier(MPI_COMM_WORLD);
         }
 #endif // ERT_MPI
-        
-        if ((id == 0) && (rank==0)) {
+
+        if ((id == 0) && (rank == 0)) {
 #ifdef ERT_GPU
           cudaEventRecord(stop);
 #else
-          endTime = getTime();
+          endTime   = getTime();
 #endif
         }
 
 #if ERT_GPU
-        cudaMemcpy(&buf[nid], d_buf, n*sizeof(T), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&buf[nid], d_buf, n * sizeof(T), cudaMemcpyDeviceToHost);
         cudaDeviceSynchronize();
 #endif
 
         if ((id == 0) && (rank == 0)) {
           uint64_t working_set_size = n * nthreads * nprocs;
-          uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
-          uint64_t total_flops = t * working_set_size * ERT_FLOP;
+          uint64_t total_bytes      = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
+          uint64_t total_flops      = t * working_set_size * ERT_FLOP;
           double seconds;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
@@ -228,22 +222,18 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
           cudaEventElapsedTime(&milliseconds, start, stop);
           seconds = static_cast<double>(milliseconds) / 1000.;
 #else
-          endTime = getTime();
-          seconds = endTime - startTime;
+          endTime   = getTime();
+          seconds   = endTime - startTime;
 #endif
-          printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
+          printf("%12" PRIu64 " %12" PRIu64 " %15.3lf %12" PRIu64 " %12" PRIu64 "\n", working_set_size * bytes_per_elem,
+                 t, seconds * 1000000, total_bytes, total_flops);
         } // print
 
       } // working set - ntrials
 
       nNew = 1.1 * n;
       if (nNew == n) {
-        nNew = n+1;
+        nNew = n + 1;
       }
 
       n = nNew;
@@ -253,7 +243,7 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
     cudaFree(d_buf);
 
     if (cudaGetLastError() != cudaSuccess) {
-      printf("Last cuda error: %s\n",cudaGetErrorString(cudaGetLastError()));
+      printf("Last cuda error: %s\n", cudaGetErrorString(cudaGetLastError()));
     }
 
     cudaDeviceReset();
@@ -261,7 +251,8 @@ void run(uint64_t PSIZE, T* buf, int rank, int nprocs, int *nthreads_ptr)
   } // parallel region
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 #if ERT_GPU
   if (argc != 3) {
     fprintf(stderr, "Usage: %s gpu_blocks gpu_threads\n", argv[0]);
@@ -272,19 +263,19 @@ int main(int argc, char *argv[]) {
   gpu_threads = atoi(argv[2]);
 #endif
 
-  int rank = 0;
-  int nprocs = 1;
+  int rank     = 0;
+  int nprocs   = 1;
   int nthreads = 1;
 #ifdef ERT_MPI
   int provided = -1;
   int requested;
 
-  #ifdef ERT_OPENMP
+#ifdef ERT_OPENMP
   requested = MPI_THREAD_FUNNELED;
   MPI_Init_thread(&argc, &argv, requested, &provided);
-  #else
+#else
   MPI_Init(&argc, &argv);
-  #endif // ERT_OPENMP
+#endif // ERT_OPENMP
 
   MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -296,7 +287,7 @@ int main(int argc, char *argv[]) {
   uint64_t PSIZE = TSIZE / nprocs;
 
 #if ERT_GPU && ERT_FP16
-  half2 *              hlfbuf = alloc<half2>(PSIZE);
+  half2 *hlfbuf = alloc<half2>(PSIZE);
   checkBuffer(hlfbuf);
   run<half2>(PSIZE, hlfbuf, rank, nprocs, &nthreads);
   free(hlfbuf);
@@ -304,9 +295,9 @@ int main(int argc, char *argv[]) {
 
 #ifdef ERT_FP32
 #ifdef ERT_GPU
-  float *              sglbuf = alloc<float>(PSIZE);
+  float *sglbuf = alloc<float>(PSIZE);
 #else
-  float * __restrict__ sglbuf = alloc<float>(PSIZE);
+  float *__restrict__ sglbuf = alloc<float>(PSIZE);
 #endif
   checkBuffer(sglbuf);
   run<float>(PSIZE, sglbuf, rank, nprocs, &nthreads);
@@ -319,9 +310,9 @@ int main(int argc, char *argv[]) {
 
 #ifdef ERT_FP64
 #ifdef ERT_GPU
-  double *              dblbuf = alloc<double>(PSIZE);
+  double *dblbuf = alloc<double>(PSIZE);
 #else
-  double * __restrict__ dblbuf = alloc<double>(PSIZE);
+  double *__restrict__ dblbuf = alloc<double>(PSIZE);
 #endif
   checkBuffer(dblbuf);
   run<double>(PSIZE, dblbuf, rank, nprocs, &nthreads);
@@ -358,7 +349,6 @@ int main(int argc, char *argv[]) {
 #ifdef ERT_MPI
   MPI_Finalize();
 #endif
-
 
   return 0;
 }

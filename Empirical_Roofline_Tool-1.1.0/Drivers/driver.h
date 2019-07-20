@@ -9,23 +9,23 @@
 #include <iostream>
 
 #ifdef ERT_OPENMP
-  #include <omp.h>
+#include <omp.h>
 #endif
 
 #ifdef ERT_MPI
-  #include <mpi.h>
+#include <mpi.h>
 #endif
 
 #ifdef ERT_BGQM
-  #include "bgq.util.h"
+#include "bgq.util.h"
 #endif
 
 #ifdef ERT_QPX
- #include "kernel.qpx.h"
+#include "kernel.qpx.h"
 #endif
 
 #if defined(ERT_SSE) || defined(ERT_AVX) || defined(ERT_KNC)
-  #include "kernel.avx.h"
+#include "kernel.avx.h"
 #endif
 
 #define GBUNIT (1024 * 1024 * 1024)

@@ -6,10 +6,9 @@
 #include <inttypes.h>
 #include <hip/hip_runtime.h>
 #ifdef ERT_OPENMP
-  #include <omp.h>
+#include <omp.h>
 #endif
 #include "kernel1-hip.h"
-
 
 double getTime()
 {
@@ -25,7 +24,8 @@ double getTime()
   return time;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   if (argc != 3) {
     fprintf(stderr, "Usage: %s hip_blocks hip_threads\n", argv[0]);
     return -1;
@@ -34,10 +34,10 @@ int main(int argc, char *argv[]) {
   hip_blocks  = atoi(argv[1]);
   hip_threads = atoi(argv[2]);
 
-  int rank = 0;
-  int nprocs = 1;
+  int rank     = 0;
+  int nprocs   = 1;
   int nthreads = 1;
-  int id = 0;
+  int id       = 0;
 
   uint64_t TSIZE = ERT_MEMORY_MAX;
   uint64_t PSIZE = TSIZE / nprocs;
@@ -49,14 +49,14 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef ERT_OPENMP
-  #pragma omp parallel private(id)
+#pragma omp parallel private(id)
 #endif
   {
 #ifdef ERT_OPENMP
-    id = omp_get_thread_num();
+    id       = omp_get_thread_num();
     nthreads = omp_get_num_threads();
 #else
-    id = 0;
+    id       = 0;
     nthreads = 1;
 #endif
 
@@ -73,24 +73,24 @@ int main(int argc, char *argv[]) {
 
     for (device = 0; device < num_devices; device++) {
       hipDeviceProp_t dprop;
-      hipGetDeviceProperties(&dprop,device);
+      hipGetDeviceProperties(&dprop, device);
     }
 
     hipSetDevice(id % num_devices);
     hipGetDevice(&device_id);
     hipDeviceGetAttribute(&numSMs, hipDeviceAttributeMultiprocessorCount, device_id);
-        
+
     uint64_t nsize = PSIZE / nthreads;
-    nsize = nsize / sizeof(double);
-    uint64_t nid =  nsize * id ;
+    nsize          = nsize / sizeof(double);
+    uint64_t nid   = nsize * id;
 
     double *d_buf;
-    hipMalloc((void **)&d_buf, nsize*sizeof(double));
-    hipMemset(d_buf, 0, nsize*sizeof(double));
+    hipMalloc((void **)&d_buf, nsize * sizeof(double));
+    hipMemset(d_buf, 0, nsize * sizeof(double));
     hipDeviceSynchronize();
 
     double startTime, endTime;
-    uint64_t n,nNew;
+    uint64_t n, nNew;
     uint64_t t;
     int bytes_per_elem;
     int mem_accesses_per_elem;
@@ -105,45 +105,41 @@ int main(int argc, char *argv[]) {
       initialize(n, &buf[nid], -1.0);
 
       for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
-        hipMemcpy(d_buf, &buf[nid], n*sizeof(double), hipMemcpyHostToDevice);
+        hipMemcpy(d_buf, &buf[nid], n * sizeof(double), hipMemcpyHostToDevice);
         hipDeviceSynchronize();
 
 #ifdef ERT_OPENMP
-        #pragma omp barrier
+#pragma omp barrier
 #endif
-        if ((id == 0) && (rank==0)) {
+        if ((id == 0) && (rank == 0)) {
           startTime = getTime();
         }
 
         rooflineKernel(n, t, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
         hipDeviceSynchronize();
 #ifdef ERT_OPENMP
-        #pragma omp barrier
+#pragma omp barrier
 #endif
 
         if ((id == 0) && (rank == 0)) {
-          endTime = getTime();
-          double seconds = (double)(endTime - startTime);
+          endTime                   = getTime();
+          double seconds            = (double)(endTime - startTime);
           uint64_t working_set_size = n * nthreads * nprocs;
-          uint64_t total_bytes = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
-          uint64_t total_flops = t * working_set_size * ERT_FLOP;
+          uint64_t total_bytes      = t * working_set_size * bytes_per_elem * mem_accesses_per_elem;
+          uint64_t total_flops      = t * working_set_size * ERT_FLOP;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
-          printf("%12lu %12ld %15.3lf %12lu %12lu\n",
-                  working_set_size * bytes_per_elem,
-                  t,
-                  seconds * 1000000,
-                  total_bytes,
-                  total_flops);
+          printf("%12lu %12ld %15.3lf %12lu %12lu\n", working_set_size * bytes_per_elem, t, seconds * 1000000,
+                 total_bytes, total_flops);
         } // print
 
-        hipMemcpy(&buf[nid], d_buf, n*sizeof(double), hipMemcpyDeviceToHost);
+        hipMemcpy(&buf[nid], d_buf, n * sizeof(double), hipMemcpyDeviceToHost);
         hipDeviceSynchronize();
       } // working set - ntrials
 
       nNew = 1.1 * n;
       if (nNew == n) {
-        nNew = n+1;
+        nNew = n + 1;
       }
 
       n = nNew;
@@ -152,7 +148,7 @@ int main(int argc, char *argv[]) {
     hipFree(d_buf);
 
     if (hipGetLastError() != hipSuccess) {
-      printf("Last cuda error: %s\n",hipGetErrorString(hipGetLastError()));
+      printf("Last cuda error: %s\n", hipGetErrorString(hipGetLastError()));
     }
 
     hipDeviceReset();
