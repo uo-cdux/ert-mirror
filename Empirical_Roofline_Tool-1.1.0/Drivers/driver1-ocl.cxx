@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
     wg_size = 0; // let the OpenCL runtime decide
   }
 
+  printf("fp64\n"); // declare precision to be compatible with new templatized version of driver1.c
 #ifdef HEADER
   {
     std::string s, v;
