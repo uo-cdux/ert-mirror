@@ -55,7 +55,7 @@ inline void setGPU(const int id)
 
   cudaGetDeviceCount(&num_gpus);
   if (num_gpus < 1) {
-    fprintf(stderr, "No CUDA device detected.\n");
+    fprintf(stderr, "No GPU device detected.\n");
     exit(1);
   }
 
@@ -78,7 +78,7 @@ inline void launchKernel(uint64_t n, uint64_t t, uint64_t nid, T *buf, T *d_buf,
   avxKernel(n, t, &buf[nid]);
 #elif ERT_KNC // KNC intrinsics for Babbage(intel mic)
   kncKernel(n, t, &buf[nid]);
-#elif ERT_GPU // CUDA code
+#elif ERT_GPU // GPU code
   gpuKernel<T>(n, t, d_buf, bytes_per_elem_ptr, mem_accesses_per_elem_ptr);
   cudaDeviceSynchronize();
 #else         // C-code
@@ -131,7 +131,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     T *d_buf = nullptr;
 #endif
 
-#ifdef ERT_GPU
+#if defined (ERT_GPU) && !defined (ERT_HIP)
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -174,7 +174,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 #endif
 
         if ((id == 0) && (rank == 0)) {
-#ifdef ERT_GPU
+#if defined (ERT_GPU) && !defined (ERT_HIP)
           cudaEventRecord(start);
 #else
           startTime = getTime();
@@ -197,7 +197,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 #endif // ERT_MPI
 
         if ((id == 0) && (rank == 0)) {
-#ifdef ERT_GPU
+#if defined (ERT_GPU) && !defined (ERT_HIP)
           cudaEventRecord(stop);
 #else
           endTime   = getTime();
@@ -216,7 +216,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
           double seconds;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
-#if ERT_GPU
+#if defined (ERT_GPU) && !defined (ERT_HIP)
           cudaEventSynchronize(stop);
           float milliseconds = 0.f;
           cudaEventElapsedTime(&milliseconds, start, stop);
@@ -243,7 +243,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     cudaFree(d_buf);
 
     if (cudaGetLastError() != cudaSuccess) {
-      printf("Last cuda error: %s\n", cudaGetErrorString(cudaGetLastError()));
+      printf("Last GPU error: %s\n", cudaGetErrorString(cudaGetLastError()));
     }
 
     cudaDeviceReset();

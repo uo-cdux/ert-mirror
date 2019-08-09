@@ -133,6 +133,9 @@ class ert_core:
     if "ERT_GPU" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_GPU"] = [False]
       
+    if "ERT_HIP" not in self.dict["CONFIG"]:
+      self.dict["CONFIG"]["ERT_HIP"] = [False]
+      
     if "ERT_PRECISION" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_PRECISION"] = ["FP64"]
 
@@ -236,6 +239,12 @@ class ert_core:
 
       if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
         command_prefix += ["-DERT_GPU"] + self.dict["CONFIG"]["ERT_GPU_CFLAGS"]
+
+      if self.dict["CONFIG"]["ERT_HIP"][0] == "True":
+        command_prefix += ["-DERT_HIP"]
+
+      if self.dict["CONFIG"]["ERT_OCL"][0] == "True":
+        command_prefix += ["-DERT_OCL"]
 
       for p in self.dict["CONFIG"]["ERT_PRECISION"]:
         command_prefix += ["-DERT_%s" % p]

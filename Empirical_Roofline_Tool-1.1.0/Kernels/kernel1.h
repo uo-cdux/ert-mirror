@@ -7,16 +7,20 @@
 #include "rep.h"
 
 #ifdef ERT_GPU
-#include <cuda_fp16.h>
-
 extern int gpu_blocks;
 extern int gpu_threads;
 
+#ifdef ERT_HIP
+#include <hip/hip_runtime.h>
+#include <hip/hip_fp16.h>
+#else
+#include <cuda_fp16.h>
+#endif
 #define KERNEL2HALF(a, b, c) ((a) = __hadd2((b), (c)))
 #define KERNEL4HALF(a, b, c) ((a) = __hfma2((a), (b), (c)))
 #endif
 
-#ifndef __NVCC__
+#if !defined (__NVCC__) && !defined (__HIP_PLATFORM_HCC__)
 #define half2 char16_t
 #endif
 
@@ -202,7 +206,11 @@ void gpuKernel(uint32_t nsize, uint32_t ntrials, T *__restrict__ A, int *bytes_p
   __alignx(ERT_ALIGN, A);
 #endif
 
+#ifdef ERT_HIP
+  hipLaunchKernelGGL((block_stride), dim3(gpu_blocks), dim3(gpu_threads), 0, 0, ntrials, nsize, A);
+#else
   block_stride<T><<<gpu_blocks, gpu_threads>>>(ntrials, nsize, A);
+#endif
 }
 #else
 template <typename T>
