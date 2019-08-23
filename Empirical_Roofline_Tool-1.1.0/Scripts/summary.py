@@ -42,7 +42,7 @@ meta_lines = lines[i:]
 
 for pkey in sorted(data.iterkeys()):
   temp_lines = data[pkey]
-  if pkey == PRECISION.fp64.value:
+  if pkey == PRECISION.fp64.value or PRECISION.fp32.value or PRECISION.fp16.value:
     lines = temp_lines
   gflops = [float(line.split()[9]) for line in temp_lines]
   maxgflops = max(gflops)
