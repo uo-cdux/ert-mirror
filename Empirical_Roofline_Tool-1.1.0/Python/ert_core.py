@@ -245,6 +245,7 @@ class ert_core:
 
       if self.dict["CONFIG"]["ERT_OCL"][0] == "True":
         command_prefix += ["-DERT_OCL"]
+        command_prefix += ["-DERT_KERNEL=\"%s\"" % self.dict["CONFIG"]["ERT_KERNEL"][0]]
 
       for p in self.dict["CONFIG"]["ERT_PRECISION"]:
         command_prefix += ["-DERT_%s" % p]
@@ -310,6 +311,42 @@ class ert_core:
     return 0
 
   def run(self):
+
+    def submit(command, run_dir, print_str):
+      if print_str == "":
+        print_str = "serial"
+      else:
+        print_str = print_str[:-2]
+
+      if self.options.run:
+        if os.path.exists("%s/run.done" % run_dir):
+          if self.options.verbose > 1:
+            print "    Skipping %s - already run" % print_str
+        else:
+          command = "(" + command + ") > %s/try.ERT_TRY_NUM 2>&1 " % run_dir
+          if self.options.verbose > 0:
+            print "    %s" % print_str
+
+          for t in xrange(1,num_experiments+1):
+            output = "%s/try.%03d" % (run_dir,t) 
+
+            cur_command = command
+            cur_command = cur_command.replace("ERT_TRY_NUM","%03d" % t)
+
+            self.metadata["TIMESTAMP_DATA"] = time.time()
+
+            if execute_shell(cur_command,self.options.verbose > 1) != 0:
+              sys.stderr.write("Unable to complete %s, experiment %d\n" % (run_dir,t))
+              return 1
+
+            if self.add_metadata(output) != 0:
+              return 1
+
+          command = ["touch","%s/run.done" % run_dir]
+          if execute_noshell(command,self.options.verbose > 1) != 0:
+            sys.stderr.write("Unable to make 'run.done' file in %s\n" % run_dir)
+            return 1
+
     if self.options.run:
       if self.options.verbose > 0:
         if self.options.verbose > 1:
@@ -339,21 +376,6 @@ class ert_core:
       else:
         procs_threads_list = [1]
 
-    if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
-      gpu_blocks_list = parse_int_list(self.dict["CONFIG"]["ERT_GPU_BLOCKS"][0])
-    else:
-      gpu_blocks_list = [1]
-
-    if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
-      gpu_threads_list = parse_int_list(self.dict["CONFIG"]["ERT_GPU_THREADS"][0])
-    else:
-      gpu_threads_list = [1]
-
-    if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
-      blocks_threads_list = parse_int_list(self.dict["CONFIG"]["ERT_BLOCKS_THREADS"][0])
-    else:
-      blocks_threads_list = [1]
-
     num_experiments = int(self.dict["CONFIG"]["ERT_NUM_EXPERIMENTS"][0])
 
     base_command = list_2_string(self.dict["CONFIG"]["ERT_RUN"])
@@ -361,98 +383,74 @@ class ert_core:
     for mpi_procs in mpi_procs_list:
       for openmp_threads in openmp_threads_list:
         if mpi_procs * openmp_threads in procs_threads_list:
-          for gpu_blocks in gpu_blocks_list:
-            for gpu_threads in gpu_threads_list:
-              if gpu_blocks * gpu_threads in blocks_threads_list:
-                print_str = ""
+          base_str = ""
+          command = base_command
 
-                if self.dict["CONFIG"]["ERT_MPI"][0] == "True":
-                  mpi_dir = "%s/MPI.%04d" % (self.flop_dir,mpi_procs)
-                  print_str += "MPI %d, " % mpi_procs
-                else:
-                  mpi_dir = self.flop_dir
+          if self.dict["CONFIG"]["ERT_MPI"][0] == "True":
+            mpi_dir = "%s/MPI.%04d" % (self.flop_dir,mpi_procs)
+            base_str += "MPI %d, " % mpi_procs
+            command = command.replace("ERT_MPI_PROCS",str(mpi_procs))
+          else:
+            mpi_dir = self.flop_dir
+          if self.options.run:
+            make_dir_if_needed(mpi_dir,"run",self.options.verbose > 1)
 
-                if self.options.run:
-                  make_dir_if_needed(mpi_dir,"run",self.options.verbose > 1)
+          if self.dict["CONFIG"]["ERT_OPENMP"][0] == "True":
+            openmp_dir = "%s/OpenMP.%04d" % (mpi_dir,openmp_threads)
+            base_str += "OpenMP %d, " % openmp_threads
+            command = command.replace("ERT_OPENMP_THREADS",str(openmp_threads))
+          else:
+            openmp_dir = mpi_dir
+          if self.options.run:
+            make_dir_if_needed(openmp_dir,"run",self.options.verbose > 1)
 
-                if self.dict["CONFIG"]["ERT_OPENMP"][0] == "True":
-                  openmp_dir = "%s/OpenMP.%04d" % (mpi_dir,openmp_threads)
-                  print_str += "OpenMP %d, " % openmp_threads
-                else:
-                  openmp_dir = mpi_dir
-
-                if self.options.run:
-                  make_dir_if_needed(openmp_dir,"run",self.options.verbose > 1)
-
-                if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
+          if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
+            gpu_command = command.replace("ERT_CODE","%s/%s.%s" 
+                      % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0]))
+            gpu_blocks_list = parse_int_list(self.dict["CONFIG"]["ERT_GPU_BLOCKS"][0])
+            gpu_threads_list = parse_int_list(self.dict["CONFIG"]["ERT_GPU_THREADS"][0])
+            blocks_threads_list = parse_int_list(self.dict["CONFIG"]["ERT_BLOCKS_THREADS"][0])
+            for gpu_blocks in gpu_blocks_list:
+              for gpu_threads in gpu_threads_list:
+                if gpu_blocks * gpu_threads in blocks_threads_list:
+                  command = gpu_command + "%d %d" % (gpu_blocks, gpu_threads)
                   gpu_dir = "%s/GPU_Blocks.%04d" % (openmp_dir,gpu_blocks)
-                  print_str += "GPU blocks %d, " % gpu_blocks
-                else:
-                  gpu_dir = openmp_dir
+                  print_str = base_str + "GPU blocks %d, " % gpu_blocks
+                  if self.options.run:
+                    make_dir_if_needed(gpu_dir,"run",self.options.verbose > 1)
 
-                if self.options.run:
-                  make_dir_if_needed(gpu_dir,"run",self.options.verbose > 1)
-
-                if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
                   run_dir = "%s/GPU_Threads.%04d" % (gpu_dir,gpu_threads)
                   print_str += "GPU threads %d, " % gpu_threads
-                else:
-                  run_dir = gpu_dir
+                  if self.options.run:
+                    make_dir_if_needed(run_dir,"run",self.options.verbose > 1)
+
+                  self.run_list.append(run_dir)
+                  submit(command, run_dir, print_str)
+
+          elif self.dict["CONFIG"]["ERT_OCL"][0] == "True":
+            ocl_command = command.replace("ERT_CODE","%s/%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0]))
+            ocl_dict = parse_int_dict(self.dict["CONFIG"]["ERT_OCL_SIZES"][0])
+            for ocl_global, ocl_local in ocl_dict.items():
+                command = ocl_command + "%d %d" % (ocl_global, ocl_local)
+                run_dir = "%s/OCL_SIZES.%d.%d" % (openmp_dir, ocl_global, ocl_local)
+                print_str = base_str + "Global size %d, Local size %d  " % (ocl_global, ocl_local)
 
                 if self.options.run:
                   make_dir_if_needed(run_dir,"run",self.options.verbose > 1)
 
                 self.run_list.append(run_dir)
+                submit(command, run_dir, print_str)
 
-                if print_str == "":
-                  print_str = "serial"
-                else:
-                  print_str = print_str[:-2]
+          else:
+            command = command.replace("ERT_CODE","%s/%s.%s" 
+                      % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0]))
+            run_dir = openmp_dir
+            print_str = base_str
+            self.run_list.append(run_dir)
+            submit(command, run_dir, print_str)
 
-                if self.options.run:
-                  if os.path.exists("%s/run.done" % run_dir):
-                    if self.options.verbose > 1:
-                      print "    Skipping %s - already run" % print_str
-                  else:
-                    if self.options.verbose > 0:
-                      print "    %s" % print_str
-
-                    command = base_command
-
-                    command = command.replace("ERT_OPENMP_THREADS",str(openmp_threads))
-                    command = command.replace("ERT_MPI_PROCS",str(mpi_procs))
-
-                    if self.dict["CONFIG"]["ERT_OCL"][0] == "True":
-                      command = command.replace("ERT_CODE","%s/%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0]))
-                    elif self.dict["CONFIG"]["ERT_GPU"][0] == "True":
-                      command = command.replace("ERT_CODE","%s/%s.%s %d %d" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0],gpu_blocks,gpu_threads))
-                    else:
-                      command = command.replace("ERT_CODE","%s/%s.%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0],self.dict["CONFIG"]["ERT_KERNEL"][0]))
-
-                    command = "(" + command + ") > %s/try.ERT_TRY_NUM 2>&1 " % run_dir
-
-                    for t in xrange(1,num_experiments+1):
-                      output = "%s/try.%03d" % (run_dir,t) 
-
-                      cur_command = command
-                      cur_command = cur_command.replace("ERT_TRY_NUM","%03d" % t)
-
-                      self.metadata["TIMESTAMP_DATA"] = time.time()
-
-                      if execute_shell(cur_command,self.options.verbose > 1) != 0:
-                        sys.stderr.write("Unable to complete %s, experiment %d\n" % (run_dir,t))
-                        return 1
-
-                      if self.add_metadata(output) != 0:
-                        return 1
-
-                    command = ["touch","%s/run.done" % run_dir]
-                    if execute_noshell(command,self.options.verbose > 1) != 0:
-                      sys.stderr.write("Unable to make 'run.done' file in %s\n" % run_dir)
-                      return 1
-
-                  if self.options.verbose > 1:
-                    print
+        if self.options.verbose > 1:
+          print
 
     return 0
 
@@ -678,6 +676,8 @@ class ert_core:
         depth_string += "/*"
       if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
         depth_string += "/*/*"
+      if self.dict["CONFIG"]["ERT_OCL"][0] == "True":
+        depth_string += "/*"
 
       command = "cat %s%s/sum | %s/Scripts/roofline.py" % (self.results_dir,depth_string,self.exe_path)
       result = stdout_shell(command,self.options.verbose > 1)

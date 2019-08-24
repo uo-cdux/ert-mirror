@@ -225,14 +225,17 @@ void kernel(uint64_t nsize, uint64_t ntrials, T *__restrict__ A, int *bytes_per_
   __alignx(ERT_ALIGN, A);
 #endif
 
-  T epsilon = 1e-6;
-  T factor = (1.0 - epsilon);
-  T alpha = -epsilon;
+  // A needs to be initilized to -1 coming in
+  // And with alpha=2 and beta=1, A=-1 is preserved upon return
+  T alpha, const_beta;
+  alpha      = 2.0;
+  const_beta = 1.0;
+
   uint32_t i, j;
   for (j = 0; j < ntrials; ++j) {
 #pragma unroll(8)
     for (i = 0; i < nsize; ++i) {
-      T beta = A[i] * factor;
+      T beta = const_beta;
 #if (ERT_FLOP & 1) == 1 /* add 1 flop */
       KERNEL1(beta, A[i], alpha);
 #endif
@@ -267,9 +270,8 @@ void kernel(uint64_t nsize, uint64_t ntrials, T *__restrict__ A, int *bytes_per_
       REP512(KERNEL2(beta, A[i], alpha));
 #endif
 
-      A[i] = beta;
+      A[i] = -beta;
     }
-    alpha *= factor;
   }
 }
 #endif
