@@ -49,6 +49,11 @@
   #define cudaDeviceReset hipDeviceReset
   #define cudaSuccess hipSuccess
   #define cudaGetErrorString hipGetErrorString
+  #define cudaEvent_t hipEvent_t
+  #define cudaEventCreate hipEventCreate
+  #define cudaEventRecord hipEventRecord
+  #define cudaEventSynchronize hipEventSynchronize
+  #define cudaEventElapsedTime hipEventElapsedTime
 #endif
 
 #ifdef ERT_OCL

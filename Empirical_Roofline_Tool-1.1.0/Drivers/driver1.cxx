@@ -174,7 +174,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     size_t max_wg_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
     if (local_size > max_wg_size) {
       local_size = max_wg_size;
-      fprintf(stderr, "WARNING: Setting work group size to device maximum %d\n", local_size);
+      fprintf(stderr, "WARNING: Setting work group size to device maximum %ld\n", local_size);
     }
  
     // Build the OpenCL kernel
@@ -212,7 +212,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     T *d_buf = nullptr;
 #endif
 
-#if defined (ERT_GPU) && !defined (ERT_HIP)
+#if defined (ERT_GPU)
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -237,14 +237,14 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
       double value = -1.0;
       initialize<T>(nsize, &buf[nid], value);
 
-      for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_GPU
-        cudaMemcpy(d_buf, &buf[nid], n * sizeof(T), cudaMemcpyHostToDevice);
-        cudaDeviceSynchronize();
+      cudaMemcpy(d_buf, &buf[nid], n * sizeof(T), cudaMemcpyHostToDevice);
+      cudaDeviceSynchronize();
 #elif  ERT_OCL
-	cl::copy(queue, &buf[nid], &buf[nid] + n, d_buf);
+      cl::copy(queue, &buf[nid], &buf[nid] + n, d_buf);
 #endif
 
+      for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_MPI
 #ifdef ERT_OPENMP
 #pragma omp master
@@ -259,7 +259,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 #endif
 
         if ((id == 0) && (rank == 0)) {
-#if defined (ERT_GPU) && !defined (ERT_HIP)
+#if defined (ERT_GPU)
           cudaEventRecord(start);
 #elif ERT_OCL
 #else
@@ -289,7 +289,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 #endif // ERT_MPI
 
         if ((id == 0) && (rank == 0)) {
-#if defined (ERT_GPU) && !defined (ERT_HIP)
+#if defined (ERT_GPU)
           cudaEventRecord(stop);
 #elif ERT_OCL
 #else
@@ -298,7 +298,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
         }
 
 #if ERT_GPU
-        cudaMemcpy(&buf[nid], d_buf, n * sizeof(T), cudaMemcpyDeviceToHost);
+        //cudaMemcpy(&buf[nid], d_buf, n * sizeof(T), cudaMemcpyDeviceToHost);
         cudaDeviceSynchronize();
 #elif  ERT_OCL
         cl::copy(queue, d_params, params, params + 2);
@@ -314,7 +314,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
           double seconds;
 
           // nsize; trials; microseconds; bytes; single thread bandwidth; total bandwidth
-#if defined (ERT_GPU) && !defined (ERT_HIP)
+#if defined (ERT_GPU)
           cudaEventSynchronize(stop);
           float milliseconds = 0.f;
           cudaEventElapsedTime(&milliseconds, start, stop);
@@ -460,8 +460,8 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef ERT_OCL
-    printf("GLOBAL_SIZE    %d\n", global_size);
-    printf("LOCAL_SIZE     %d\n", local_size);
+    printf("GLOBAL_SIZE    %ld\n", global_size);
+    printf("LOCAL_SIZE     %ld\n", local_size);
 #endif
   }
 
