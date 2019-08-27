@@ -142,6 +142,9 @@ class ert_core:
     if "ERT_OCL" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_OCL"] = [False]
 
+    if "ERT_WSS_MULT" not in self.dict["CONFIG"]:
+      self.dict["CONFIG"]["ERT_WSS_MULT"] = [1.1]
+
     self.results_dir = self.dict["CONFIG"]["ERT_RESULTS"][0]
     made_results = make_dir_if_needed(self.results_dir,"results",False)
 
@@ -229,7 +232,8 @@ class ert_core:
         ["-DERT_ALIGN=%s" % self.dict["CONFIG"]["ERT_ALIGN"][0]]                     + \
         ["-DERT_MEMORY_MAX=%s" % self.dict["CONFIG"]["ERT_MEMORY_MAX"][0]]           + \
         ["-DERT_WORKING_SET_MIN=%s" % self.dict["CONFIG"]["ERT_WORKING_SET_MIN"][0]] + \
-        ["-DERT_TRIALS_MIN=%s" % self.dict["CONFIG"]["ERT_TRIALS_MIN"][0]]
+        ["-DERT_TRIALS_MIN=%s" % self.dict["CONFIG"]["ERT_TRIALS_MIN"][0]]           + \
+        ["-DERT_WSS_MULT=%s" % self.dict["CONFIG"]["ERT_WSS_MULT"][0]]
 
       if self.dict["CONFIG"]["ERT_MPI"][0] == "True":
         command_prefix += ["-DERT_MPI"] + self.dict["CONFIG"]["ERT_MPI_CFLAGS"]

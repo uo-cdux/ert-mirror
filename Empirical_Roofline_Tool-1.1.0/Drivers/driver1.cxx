@@ -167,14 +167,13 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     // Map the Device to an id, create a Context and queue for it
     int num_devices = devices.size();
     cl::Device device = devices[id % num_devices];
-//printf("Detected %d devices, thread %d using device %d\n", num_devices, id, id%num_devices);
     cl::Context context(device);
     cl::CommandQueue queue(context, CL_QUEUE_PROFILING_ENABLE);
     // Check that maximum working group size isn't exceeded
     size_t max_wg_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
     if (local_size > max_wg_size) {
-      local_size = max_wg_size;
-      fprintf(stderr, "WARNING: Setting work group size to device maximum %ld\n", local_size);
+      fprintf(stderr, "ERROR: Work group size > device maximum %ld\n", max_wg_size);
+      exit(1);
     }
  
     // Build the OpenCL kernel
@@ -230,8 +229,8 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     while (n <= nsize) { // working set - nsize
 
       uint64_t ntrials = nsize / n;
-      if (ntrials < 1)
-        ntrials = 1;
+      if (ntrials < ERT_TRIALS_MIN)
+        ntrials = ERT_TRIALS_MIN;
 
       // initialize small chunck of buffer within each thread
       double value = -1.0;
@@ -244,7 +243,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
       cl::copy(queue, &buf[nid], &buf[nid] + n, d_buf);
 #endif
 
-      for (t = ERT_TRIALS_MIN; t <= ntrials; t = t * 2) { // working set - ntrials
+      for (t = 1; t <= ntrials; t = t * 2) { // working set - ntrials
 #ifdef ERT_MPI
 #ifdef ERT_OPENMP
 #pragma omp master
@@ -332,7 +331,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 
       } // working set - ntrials
 
-      nNew = 1.1 * n;
+      nNew = ERT_WSS_MULT * n;
       if (nNew == n) {
         nNew = n + 1;
       }
