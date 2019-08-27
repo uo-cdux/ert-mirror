@@ -429,8 +429,11 @@ class ert_core:
 
           elif self.dict["CONFIG"]["ERT_OCL"][0] == "True":
             ocl_command = command.replace("ERT_CODE","%s/%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0]))
-            ocl_dict = parse_int_dict(self.dict["CONFIG"]["ERT_OCL_SIZES"][0])
-            for ocl_global, ocl_local in ocl_dict.items():
+            ocl_list = self.dict["CONFIG"]["ERT_OCL_SIZES"][0].split(',')
+            for ocl_pair in ocl_list:
+                ocl_pair = ocl_pair.split(':')
+                ocl_global = int(ocl_pair[0])
+                ocl_local = int(ocl_pair[1])
                 command = ocl_command + "%d %d" % (ocl_global, ocl_local)
                 run_dir = "%s/OCL_SIZES.%d.%d" % (openmp_dir, ocl_global, ocl_local)
                 print_str = base_str + "Global size %d, Local size %d  " % (ocl_global, ocl_local)
