@@ -84,11 +84,10 @@ inline void setGPU(const int id)
 #endif
 
 #ifdef ERT_OCL
-inline void launchKernel(uint64_t n, uint64_t t, cl::Program program, cl::CommandQueue queue,
+template<typename Kernel>
+inline void launchKernel(Kernel&& ocl_kernel, uint64_t n, uint64_t t, cl::CommandQueue queue,
 		         cl::Buffer d_buf, cl::Buffer d_params, cl::Event *event)
 {
-  auto ocl_kernel = cl::make_kernel<ulong, ulong, cl::Buffer, cl::Buffer>(program, "ocl_kernel");
-
   if ((global_size != 0) && (local_size != 0))
     *event = ocl_kernel(cl::EnqueueArgs(queue, cl::NDRange(global_size), cl::NDRange(local_size)), 
                n, t, d_buf, d_params);
@@ -192,6 +191,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
       fprintf(stderr, "ERROR: OpenCL kernel failed to build\n");
       exit(-1);
     }
+    auto ocl_kernel = cl::make_kernel<ulong, ulong, cl::Buffer, cl::Buffer>(program, "ocl_kernel");
 #endif
 
     int nthreads   = *nthreads_ptr;
@@ -267,7 +267,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
         }
 
 #ifdef ERT_OCL
-        launchKernel(n, t, program, queue, d_buf, d_params, &event);
+        launchKernel(ocl_kernel, n, t, queue, d_buf, d_params, &event);
         queue.finish();
 	event.wait();
 #else
