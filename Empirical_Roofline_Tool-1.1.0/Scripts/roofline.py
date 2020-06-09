@@ -31,12 +31,21 @@ for line in sys.stdin:
   prevLine = line
 files[key] = data
 
+# Get reference index
+tmp_file = files[len(files) - 1]
+ref_index = 0
+for i in xrange(0,len(tmp_file)):
+  m = tmp_file[i].split()
+  for j in xrange(0, 4):
+    if len(m) == 3 and m[1] == PRECISION(j).name.upper() and m[2] == "GFLOPs":
+      ref_index = j
+
 for key in sorted(files.iterkeys()):
   info = files[key]
   index = 0
   for i in xrange(0,len(info)):
     m = info[i].split()
-    if len(m) == 3 and m[1][0:2] == 'FP' and m[2] == "GFLOPs":
+    if len(m) == 3 and m[1] == PRECISION(ref_index).name.upper() and m[2] == "GFLOPs":
       flops_value = float(m[0])
       if flops_value > max_gflops_value:
         max_gflops_value = flops_value
