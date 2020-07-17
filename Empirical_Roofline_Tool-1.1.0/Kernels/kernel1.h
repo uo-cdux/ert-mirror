@@ -231,7 +231,7 @@ void kernel(uint64_t nsize, uint64_t ntrials, T *__restrict__ A, int *bytes_per_
   alpha      = 2.0;
   const_beta = 1.0;
 
-  uint32_t i, j;
+  uint64_t i, j;
   for (j = 0; j < ntrials; ++j) {
 #pragma unroll(8)
     for (i = 0; i < nsize; ++i) {
