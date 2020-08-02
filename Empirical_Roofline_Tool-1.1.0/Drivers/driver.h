@@ -57,7 +57,7 @@
 #endif
 
 #ifdef ERT_OCL
-  #include <CL/cl.hpp>
+  #include <CL/cl2.hpp>
   #include <iostream>
   #include <fstream>
   #include <string>
@@ -75,5 +75,17 @@
   //cl::CommandQueue  queue;
   //cl::Program       program;
 #endif 
+
+#ifdef ERT_DPCPP
+  #include <CL/sycl.hpp>
+  #include <fstream>
+  #include <string>
+  #include <cstdlib>
+  #include <vector>
+
+  size_t global_size;
+  size_t local_size;
+  namespace sycl = cl::sycl;
+#endif
 
 #endif  // ERT_DRIVER_H

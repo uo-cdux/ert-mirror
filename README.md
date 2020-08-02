@@ -36,3 +36,9 @@ file in the repository under the "Roofline_Visualizer-1.1.0" directory.
 ## Contact Information ##
 
 Please contact [Charlene Yang](mailto:CJYang@lbl.gov) with any questions, problems, corrections, suggestions, etc.
+
+## DPC++/SYCL Update ##
+
+Functionality to use ERT through DPC++/SYCL has been added. The functionality is similar to OpenCL. The Config file must 
+include the flag ERT_DPCPP with value set to True, and the flag ERT_DPCPP_SIZES with global_size:local_size pairs in a comma
+separated list. The DPCPP funcionality is intended to be used on a GPU and thus uses SYCL's `gpu_selector` to choose a device to execute on. A sample config file has been included. The kernel run in the ERT_DPCPP mode is always the single-source SYCL kernel found in `driver1.cxx`.
