@@ -10,7 +10,7 @@ ERT_FLOPS   1,2,64,128,256
 #ERT_FLOPS   1,256
 ERT_ALIGN   32
 
-#a possible compiler/loader alternative
+#a possible compiler/loader alternative for intel devices
 #ERT_CC      dpcpp
 #ERT_CFLAGS  -std=c++17
 
@@ -19,7 +19,8 @@ ERT_ALIGN   32
 #ERT_LDLIBS
 
 ERT_CC      clang++
-ERT_CFLAGS  -std=c++17 -fsycl -I/soft/compilers/llvm-intel-sycl/20191004/lib/clang/10.0.0/include/
+ERT_CFLAGS  -std=c++17 -O3 -fsycl -I/soft/compilers/llvm-intel-sycl/20191004/lib/clang/10.0.0/include/
+#Note: it appears the -O3 flag or the -ffast-math flag is need for the kernel to use FMA instructions for max FLOP/s
 
 ERT_LD      clang++
 ERT_LDFLAGS 
