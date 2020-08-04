@@ -3,20 +3,12 @@ ERT_RESULTS Results.sycl.v100
 
 ERT_DRIVER  driver1
 ERT_KERNEL  kernel1
-#with mode ERT_DPCPP, the kernel run is always the SYCL kernel written in driver1.cxx in a single source manner
+#with mode ERT_SYCL, the kernel run is always the SYCL kernel written in driver1.cxx in a single source manner
 
 
 ERT_FLOPS   1,2,64,128,256
 #ERT_FLOPS   1,256
 ERT_ALIGN   32
-
-#a possible compiler/loader alternative for intel devices
-#ERT_CC      dpcpp
-#ERT_CFLAGS  -std=c++17
-
-#ERT_LD      dpcpp
-#ERT_LDFLAGS
-#ERT_LDLIBS
 
 ERT_CC      clang++
 ERT_CFLAGS  -std=c++17 -O3 -fsycl -I/soft/compilers/llvm-intel-sycl/20191004/lib/clang/10.0.0/include/
@@ -30,9 +22,9 @@ ERT_RUN     ./ERT_CODE
 
 ERT_PRECISION   FP64
 
-ERT_DPCPP       True
+ERT_SYCL    True
 
-ERT_DPCPP_SIZES 16128:128,81920:128,163840:256,327680:256
+ERT_SYCL_SIZES 16128:128,81920:128,163840:256,327680:256
 
 ERT_NUM_EXPERIMENTS 1
 

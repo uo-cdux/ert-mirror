@@ -76,7 +76,7 @@
   //cl::Program       program;
 #endif 
 
-#ifdef ERT_DPCPP
+#ifdef ERT_SYCL
   #include <CL/sycl.hpp>
   #include <fstream>
   #include <string>

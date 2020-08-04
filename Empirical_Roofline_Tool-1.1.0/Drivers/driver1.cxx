@@ -83,7 +83,7 @@ inline void setGPU(const int id)
 }
 #endif
 
-#ifdef ERT_DPCPP
+#ifdef ERT_SYCL
 template <typename TAccessorRW, typename TAccessorW> class sycl_kernel {
 public:
   sycl_kernel(const ulong nsize_, const ulong trials_, TAccessorRW accessor_buf_, TAccessorW accessor_params_)
@@ -186,7 +186,7 @@ inline void launchKernel(Kernel&& ocl_kernel, uint64_t n, uint64_t t, cl::Comman
     *event = ocl_kernel(cl::EnqueueArgs(queue, cl::NDRange(n)), 
                n, t, d_buf, d_params);
 }
-#elif ERT_DPCPP
+#elif ERT_SYCL
 template <typename T>
 inline void launchKernel(uint64_t n, uint64_t t, sycl::queue queue,
                          sycl::buffer<T, 1> d_buf, sycl::buffer<int, 1> d_params, sycl::event *event)
@@ -310,7 +310,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     //auto ocl_kernel = cl::make_kernel<ulong, ulong, cl::Buffer, cl::Buffer>(program, "ocl_kernel");
     //this change is to account for OpenCL version compatability issues
     auto ocl_kernel = cl::compatibility::make_kernel<ulong, ulong, cl::Buffer, cl::Buffer>(program, "ocl_kernel");
-#elif ERT_DPCPP
+#elif ERT_SYCL
     sycl::gpu_selector selector;
     sycl::event event;
     sycl::event mem_event;
@@ -335,7 +335,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
     int params[2];
     cl::Buffer d_params(context, CL_MEM_READ_WRITE, sizeof(params));
     cl::Buffer d_buf(context, CL_MEM_READ_WRITE, sizeof(T) * nsize);
-#elif ERT_DPCPP
+#elif ERT_SYCL
     int params[2];
     sycl::buffer<int, 1> d_params(params, 2);
     sycl::buffer<T, 1> d_buf(nsize);
@@ -373,7 +373,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
       cudaDeviceSynchronize();
 #elif  ERT_OCL
       cl::copy(queue, &buf[nid], &buf[nid] + n, d_buf);
-#elif  ERT_DPCPP
+#elif  ERT_SYCL
       //move access_point, reach into constructor of sub buffer
       sycl::id<1> access_point = nid;
       sycl::range<1> reach = n;
@@ -412,7 +412,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
         launchKernel(ocl_kernel, n, t, queue, d_buf, d_params, &event);
         queue.finish();
 	event.wait();
-#elif  ERT_DPCPP
+#elif  ERT_SYCL
         launchKernel<T>(n, t, queue, d_buf, d_params, &event);
 #else
         launchKernel<T>(n, t, nid, buf, d_buf, &bytes_per_elem, &mem_accesses_per_elem);
@@ -448,7 +448,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
         bytes_per_elem = params[0];
         mem_accesses_per_elem = params[1];
 	//cl::copy(queue, d_buf, &buf[nid], &buf[nid] + n);
-#elif  ERT_DPCPP
+#elif  ERT_SYCL
         mem_event = queue.submit([&](sycl::handler &cgh) {
           auto d_params_accessor = d_params.get_access<sycl::access::mode::read_write>(cgh);
           cgh.copy(d_params_accessor, params);
@@ -474,7 +474,7 @@ void run(uint64_t PSIZE, T *buf, int rank, int nprocs, int *nthreads_ptr)
 #elif ERT_OCL
 	  seconds = (double)(event.getProfilingInfo<CL_PROFILING_COMMAND_END>() 
 	            - event.getProfilingInfo<CL_PROFILING_COMMAND_START>()) * 1e-9;
-#elif ERT_DPCPP
+#elif ERT_SYCL
           seconds = (double)(event.get_profiling_info<sycl::info::event_profiling::command_end>() 
                        - event.get_profiling_info<sycl::info::event_profiling::command_start>()) * 1e-9;
 #else
@@ -530,7 +530,7 @@ int main(int argc, char *argv[])
     global_size = 0;
     local_size = 0;
   }
-#elif ERT_DPCPP
+#elif ERT_SYCL
   if (argc == 2) {                   // Usage: driver local_size
     global_size = 0;
     local_size = atoi(argv[1]);

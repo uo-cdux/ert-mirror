@@ -142,8 +142,8 @@ class ert_core:
     if "ERT_OCL" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_OCL"] = [False]
 
-    if "ERT_DPCPP" not in self.dict["CONFIG"]:
-      self.dict["CONFIG"]["ERT_DPCPP"] = [False]
+    if "ERT_SYCL" not in self.dict["CONFIG"]:
+      self.dict["CONFIG"]["ERT_SYCL"] = [False]
 
     if "ERT_WSS_MULT" not in self.dict["CONFIG"]:
       self.dict["CONFIG"]["ERT_WSS_MULT"] = [1.1]
@@ -254,8 +254,8 @@ class ert_core:
         command_prefix += ["-DERT_OCL"]
         command_prefix += ["-DERT_KERNEL=\"%s\"" % self.dict["CONFIG"]["ERT_KERNEL"][0]]
 
-      if self.dict["CONFIG"]["ERT_DPCPP"][0] == "True":
-        command_prefix += ["-DERT_DPCPP"]
+      if self.dict["CONFIG"]["ERT_SYCL"][0] == "True":
+        command_prefix += ["-DERT_SYCL"]
 
       for p in self.dict["CONFIG"]["ERT_PRECISION"]:
         command_prefix += ["-DERT_%s" % p]
@@ -267,7 +267,7 @@ class ert_core:
         sys.stderr.write("Compiling driver, %s, failed\n" % self.dict["CONFIG"]["ERT_DRIVER"][0])
         return 1
 
-      if (self.dict["CONFIG"]["ERT_OCL"][0] != "True" and self.dict["CONFIG"]["ERT_DPCPP"] != "True"):
+      if (self.dict["CONFIG"]["ERT_OCL"][0] != "True" and self.dict["CONFIG"]["ERT_SYCL"] != "True"):
         command = command_prefix + \
                   ["-c","%s/Kernels/%s.cxx" % (self.exe_path,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
                   ["-o","%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])]
@@ -287,7 +287,7 @@ class ert_core:
       if self.dict["CONFIG"]["ERT_GPU"][0] == "True":
         command += self.dict["CONFIG"]["ERT_GPU_LDFLAGS"]
 
-      if (self.dict["CONFIG"]["ERT_OCL"][0] != "True" and self.dict["CONFIG"]["ERT_DPCPP"][0] != "True"):
+      if (self.dict["CONFIG"]["ERT_OCL"][0] != "True" and self.dict["CONFIG"]["ERT_SYCL"][0] != "True"):
         command += ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0])] + \
                    ["%s/%s.o" % (self.flop_dir,self.dict["CONFIG"]["ERT_KERNEL"][0])] + \
                    self.dict["CONFIG"]["ERT_LDLIBS"]                                  + \
@@ -454,15 +454,15 @@ class ert_core:
                 self.run_list.append(run_dir)
                 submit(command, run_dir, print_str)
 
-          elif self.dict["CONFIG"]["ERT_DPCPP"][0] == "True":
+          elif self.dict["CONFIG"]["ERT_SYCL"][0] == "True":
             dpcpp_command = command.replace("ERT_CODE", "%s/%s" % (self.flop_dir,self.dict["CONFIG"]["ERT_DRIVER"][0]))
-            dpcpp_list = self.dict["CONFIG"]["ERT_DPCPP_SIZES"][0].split(',')
+            dpcpp_list = self.dict["CONFIG"]["ERT_SYCL_SIZES"][0].split(',')
             for dpcpp_pair in dpcpp_list:
                 dpcpp_pair = dpcpp_pair.split(':')
                 dpcpp_global = int(dpcpp_pair[0])
                 dpcpp_local = int(dpcpp_pair[1])
                 command = dpcpp_command + "%d %d" % (dpcpp_global, dpcpp_local)
-                run_dir = "%s/DPCPP_SIZES.%d.%d" % (openmp_dir, dpcpp_global, dpcpp_local)
+                run_dir = "%s/SYCL_sizes.%d.%d" % (openmp_dir, dpcpp_global, dpcpp_local)
                 print_str = base_str + "Global size %d, Local size %d  " % (dpcpp_global, dpcpp_local)
 
                 if self.options.run:
@@ -708,7 +708,7 @@ class ert_core:
         depth_string += "/*/*"
       if self.dict["CONFIG"]["ERT_OCL"][0] == "True":
         depth_string += "/*"
-      if self.dict["CONFIG"]["ERT_DPCPP"][0] == "True":
+      if self.dict["CONFIG"]["ERT_SYCL"][0] == "True":
         depth_string += "/*"
 
       command = "cat %s%s/sum | %s/Scripts/roofline.py" % (self.results_dir,depth_string,self.exe_path)
