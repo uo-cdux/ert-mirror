@@ -36,3 +36,9 @@ file in the repository under the "Roofline_Visualizer-1.1.0" directory.
 ## Contact Information ##
 
 Please contact [Charlene Yang](mailto:CJYang@lbl.gov) with any questions, problems, corrections, suggestions, etc.
+
+## SYCL Update ##
+
+Functionality to use ERT through SYCL has been added. The functionality is similar to OpenCL. The Config file must 
+include the flag ERT_SYCL with value set to True, and the flag ERT_SYCL_SIZES with global_size:local_size pairs in a comma
+separated list. The SYCL funcionality is intended to be used on a GPU and thus uses SYCL's `gpu_selector` to choose a device to execute on. A sample config file has been included. The kernel run in the ERT_SYCL mode is always the single-source SYCL kernel found in `driver1.cxx`.
