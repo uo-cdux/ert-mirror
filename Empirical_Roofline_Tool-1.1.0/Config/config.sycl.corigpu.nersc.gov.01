@@ -15,11 +15,11 @@ ERT_ALIGN   32
 # $ module list
 # Currently Loaded Modulefiles:
 #  1) esslurm                 2) modules/3.2.11.4        3) opencl-loader           4) dpc++/11.0.0-20200719
-#ERT_CC      clang++
-#ERT_CFLAGS  -std=c++17 -O3 -ffast-math -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xsycl-target-backend '--cuda-gpu-arch=sm_70'
-#ERT_LD      clang++
-#ERT_LDFLAGS -std=c++17 -O3 -ffast-math -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xsycl-target-backend '--cuda-gpu-arch=sm_70'
-#ERT_LDLIBS  -lOpenCL
+ERT_CC      clang++
+ERT_CFLAGS  -std=c++17 -O3 -ffast-math -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xsycl-target-backend '--cuda-gpu-arch=sm_70'
+ERT_LD      clang++
+ERT_LDFLAGS -std=c++17 -O3 -ffast-math -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xsycl-target-backend '--cuda-gpu-arch=sm_70'
+ERT_LDLIBS  -lOpenCL
 #
 # Alternatively, Codeplay ComputeCpp
 # Currently Loaded Modulefiles:
@@ -28,11 +28,11 @@ ERT_ALIGN   32
 # $export CPATH=$CUDA_ROOT/include:$CPATH
 # $export LD_LIBRARY_PATH=$CUDA_ROOT/lib64:$LD_LIBRARY_PATH
 # $export LIBRARY_PATH=$CUDA_ROOT/lib64:$LIBRARY_PATH
-ERT_CC      compute++
-ERT_CFLAGS  -std=c++17 -O3 -ffast-math -sycl-driver -sycl-target ptx64 -no-serial-memop
-ERT_LD      compute++
-ERT_LDFLAGS -std=c++17 -O3 -ffast-math -sycl-driver -sycl-target ptx64
-ERT_LDLIBS  -lComputeCpp -lOpenCL
+#ERT_CC      compute++
+#ERT_CFLAGS  -std=c++17 -O3 -ffast-math -sycl-driver -sycl-target ptx64 -no-serial-memop
+#ERT_LD      compute++
+#ERT_LDFLAGS -std=c++17 -O3 -ffast-math -sycl-driver -sycl-target ptx64
+#ERT_LDLIBS  -lComputeCpp -lOpenCL
 
 ERT_RUN     srun ./ERT_CODE
 
