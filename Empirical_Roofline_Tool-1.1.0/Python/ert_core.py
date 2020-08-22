@@ -44,6 +44,10 @@ class ert_core:
     parser.values.run   = False
     parser.values.post  = True
 
+  def tikz_only(self, option, opt, value, parser):
+    parser.values.gnuplot = False
+    parser.values.tikz = True
+
   def flags(self):
     parser = optparse.OptionParser(usage="%prog [-h] [--help] [options] config_file",version="%prog " + self.ert_version)
 
@@ -69,6 +73,7 @@ class ert_core:
 
     post_group.add_option("--gnuplot",dest="gnuplot",action="store_true",default=True,help="Generate graphs using GNUplot [default]")
     post_group.add_option("--no-gnuplot",dest="gnuplot",action="store_false",default=True,help="Don't generate graphs using GNUplot")
+    post_group.add_option("--tikz",dest="tikz",action="callback",callback=self.tikz_only,help="Generate graphs using tikz")
 
     parser.add_option_group(post_group)
 
@@ -524,15 +529,23 @@ class ert_core:
     command += "-e 's#ERT_MAX_DATA#%s/max#g' " % run_dir
     command += "-e 's#ERT_GRAPH#%s/%s#g' " % (run_dir,name)
 
-    command += "< %s/Plot/%s.gnu.template > %s/%s.gnu" % (self.exe_path,name,run_dir,name)
-    if execute_shell(command,False) != 0:
-      sys.stderr.write("Unable to produce a '%s' gnuplot file for %s\n" % (name,run_dir))
-      return 1
+    if self.options.gnuplot:
+      command += "< %s/Plot/%s.gnu.template > %s/%s.gnu" % (self.exe_path,name,run_dir,name)
+      if execute_shell(command,False) != 0:
+        sys.stderr.write("Unable to produce a '%s' gnuplot file for %s\n" % (name,run_dir))
+        return 1
 
-    command = "echo 'load \"%s/%s.gnu\"' | %s" % (run_dir,name,self.dict["CONFIG"]["ERT_GNUPLOT"][0])
-    if execute_shell(command,self.options.verbose > 1) != 0:
-      sys.stderr.write("Unable to produce a '%s' for %s\n" % (name,run_dir))
-      return 1
+    elif self.options.tikz:
+      command += "< %s/Plot/%s.tex.template > %s/%s.tex" % (self.exe_path,name,run_dir,name)
+      if execute_shell(command,False) != 0:
+        sys.stderr.write("Unable to produce a '%s' tex file for %s\n" % (name,run_dir))
+        return 1
+
+    if self.options.gnuplot:
+      command = "echo 'load \"%s/%s.gnu\"' | %s" % (run_dir,name,self.dict["CONFIG"]["ERT_GNUPLOT"][0])
+      if execute_shell(command,self.options.verbose > 1) != 0:
+        sys.stderr.write("Unable to produce a '%s' for %s\n" % (name,run_dir))
+        return 1
 
     return 0
 
@@ -767,9 +780,12 @@ class ert_core:
         for j in xrange(0,num_peak):
           x[i][j] = gflops_emp[j][0]/gbytes_emp[i][0]
 
-      if self.options.gnuplot:
+      if self.options.gnuplot or self.options.tikz:
         basename = "roofline"
-        loadname = "%s/%s.gnu" % (self.results_dir,basename)
+        if self.options.gnuplot:
+          loadname = "%s/%s.gnu" % (self.results_dir,basename)
+        elif self.options.tikz:
+          loadname = "%s/%s.tex" % (self.results_dir,basename)
 
         xmin =   0.01
         xmax = 100.00
@@ -783,13 +799,21 @@ class ert_core:
         command += "-e 's#ERT_XRANGE_MIN#%le#g' " % xmin
         command += "-e 's#ERT_XRANGE_MAX#%le#g' " % xmax
         command += "-e 's#ERT_YRANGE_MIN#%le#g' " % ymin
-        command += "-e 's#ERT_YRANGE_MAX#\*#g' "
+        if self.options.gnuplot: command += "-e 's#ERT_YRANGE_MAX#\*#g' "
+        elif self.options.tikz: command += "-e 's#ERT_YRANGE_MAX# #g' "
         command += "-e 's#ERT_GRAPH#%s/%s#g' " % (self.results_dir,basename)
 
-        command += "< %s/Plot/%s.gnu.template > %s" % (self.exe_path,basename,loadname)
-        if execute_shell(command,False) != 0:
-          sys.stderr.write("Unable to produce a '%s' gnuplot file for %s\n" % (loadname,self.results_dir))
-          return 1
+        if self.options.gnuplot:
+          command += "< %s/Plot/%s.gnu.template > %s" % (self.exe_path,basename,loadname)
+          if execute_shell(command,False) != 0:
+            sys.stderr.write("Unable to produce a '%s' gnuplot file for %s\n" % (loadname,self.results_dir))
+            return 1
+          
+        elif self.options.tikz:
+          command += "< %s/Plot/%s.tex.template > %s" % (self.exe_path,basename,loadname)
+          if execute_shell(command,False) != 0:
+            sys.stderr.write("Unable to produce a '%s' tex file for %s\n" % (loadname,self.results_dir))
+            return 1
 
         try:
           plotfile = open(loadname,"a")
@@ -797,11 +821,19 @@ class ert_core:
           sys.stderr.write("Unable to open '%s'...\n" % loadname)
           return 1
 
-        for h in xrange(0,num_peak):
-          xgflops = 2.0
-          label = '%.1f %s/sec (%s Maximum)' % (gflops_emp[h][0],gflops_emp[h][2],gflops_emp[h][1])
-          plotfile.write("set label '%s' at %.7le,%.7le left textcolor rgb '#000080'\n" % (label,xgflops,1.2*gflops_emp[h][0]))
+        if self.options.gnuplot:
+          for h in xrange(0,num_peak):
+            xgflops = 2.0
+            label = '%.1f %s/sec (%s Maximum)' % (gflops_emp[h][0],gflops_emp[h][2],gflops_emp[h][1])
+            plotfile.write("set label '%s' at %.7le,%.7le left textcolor rgb '#000080'\n" % (label,xgflops,1.2*gflops_emp[h][0]))
+        elif self.options.tikz:
+          for h in xrange(0,num_peak):
+            xgflops = 2.0
+            label = '%.1f %s/sec (Maximum)' % (gflops_emp[h][0],gflops_emp[h][1])
+            plotfile.write("\n    \\node[maxlabel] at (axis cs: %.7le,%.7le) {%s};\n" % (xgflops,1.2*gflops_emp[h][0],label))
 
+
+          
         xleft  = xmin
         xright = x[0][0]
 
@@ -839,30 +871,48 @@ class ert_core:
 
           label = "%s - %.1lf GB/s" % (gbytes_emp[i][1],gbytes_emp[i][0])
 
-          plotfile.write("set label '%s' at %.7le,%.7le left rotate by 45 textcolor rgb '#800000'\n" % (label,xgbytes,ygbytes))
+          if self.options.gnuplot:
+            plotfile.write("set label '%s' at %.7le,%.7le left rotate by 45 textcolor rgb '#800000'\n" % (label,xgbytes,ygbytes))
+            
+          elif self.options.tikz:
+            plotfile.write("    \\node[memlabel] at (axis cs: %.7le,%.7le) {%s};\n" % (xgbytes,ygbytes,label))
 
-        plotfile.write("plot \\\n")
+        if self.options.gnuplot:
+          plotfile.write("plot \\\n")
 
-        for i in xrange(0,num_mem):
-          plotfile.write("     (x <= %.7le ? %.7le * x : 1/0) lc 1 lw 2,\\\n" % (x[i][0],gbytes_emp[i][0]))
-        for j in xrange(0,num_peak):
-          if j == num_peak-1:
-            break
-          plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2,\\\n" % (x[0][j],gflops_emp[j][0]))
-        plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2\n" % (x[0][j],gflops_emp[j][0]))
+          for i in xrange(0,num_mem):
+            plotfile.write("     (x <= %.7le ? %.7le * x : 1/0) lc 1 lw 2,\\\n" % (x[i][0],gbytes_emp[i][0]))
+          for j in xrange(0,num_peak):
+            if j == num_peak-1:
+              break
+            plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2,\\\n" % (x[0][j],gflops_emp[j][0]))
+          plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2\n" % (x[0][j],gflops_emp[j][0]))
+          plotfile.close()
 
-        plotfile.close()
+          command = "echo 'load \"%s\"' | %s" % (loadname,self.dict["CONFIG"]["ERT_GNUPLOT"][0])
+          if execute_shell(command,self.options.verbose > 1) != 0:
+            sys.stderr.write("Unable to produce a '%s' for %s\n" % (basename,self.results_dir))
+            return 1
 
-        command = "echo 'load \"%s\"' | %s" % (loadname,self.dict["CONFIG"]["ERT_GNUPLOT"][0])
-        if execute_shell(command,self.options.verbose > 1) != 0:
-          sys.stderr.write("Unable to produce a '%s' for %s\n" % (basename,self.results_dir))
-          return 1
+        elif self.options.tikz:
+          plotfile.write("\n")
+          for i in xrange(0,len(gbytes_emp)):
+            plotfile.write("    \\addplot[memline, domain=(\Xmin:%.7le)] {%.7le*x};\n" % (x[i][0],gbytes_emp[i][0]))
+          for j in xrange(0,num_peak):
+            if j == num_peak-1:
+              break
+            plotfile.write("    \\addplot[maxline, domain=(%.7le:\Xmax)] {%.7le};\n\n" % (x[0][j],gflops_emp[j][0]))
+          plotfile.write("    \\addplot[maxline, domain=(%.7le:\Xmax)] {%.7le};\n\n" % (x[0][j],gflops_emp[j][0]))
+          plotfile.write("  \end{loglogaxis}\n\end{tikzpicture}\n\n\end{document}\n")
+          plotfile.close()
 
       if self.options.verbose > 0:
         print
         print "+-------------------------------------------------"
         if self.options.gnuplot:
           print "| Empirical roofline graph:    '%s/roofline.ps'"   % self.results_dir
+        elif self.options.tikz:
+          print "| Empirical roofline graph:    '%s/roofline.tex'"   % self.results_dir
         print "| Empirical roofline database: '%s/roofline.json'" % self.results_dir
         print "+-------------------------------------------------"
         print
