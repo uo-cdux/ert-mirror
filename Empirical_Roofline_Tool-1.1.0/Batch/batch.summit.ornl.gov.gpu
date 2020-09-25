@@ -5,6 +5,7 @@
 
 module load cuda
 module load gnuplot 
+module load python/2.7.15-anaconda2-5.3.0
 
 cd $MEMBERWORK/<projid>/<ERT directory>
 
