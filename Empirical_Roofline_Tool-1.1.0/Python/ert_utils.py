@@ -1,4 +1,5 @@
 import operator,subprocess,sys,os.path
+from functools import reduce
 
 # Make a list into a space seperated string
 def list_2_string(text_list):
@@ -7,7 +8,7 @@ def list_2_string(text_list):
 # Execute a command without generating a new shell
 def execute_noshell(command,echo=True):
   if echo:
-    print "   ",list_2_string(command)
+    print("   ",list_2_string(command))
     sys.stdout.flush()
 
   if subprocess.call(command,shell=False) != 0:
@@ -19,9 +20,9 @@ def execute_noshell(command,echo=True):
 def execute_shell(command,echo=True):
   if echo:
     if isinstance(command,list):
-      print "   ",command[0]
+      print("   ",command[0])
     else:
-      print "   ",command
+      print("   ",command)
     sys.stdout.flush()
 
   if subprocess.call(command,shell=True) != 0:
@@ -33,10 +34,13 @@ def execute_shell(command,echo=True):
 # and return any output from "stdout"
 def stdout_noshell(command,echo=True):
   if echo:
-    print "   ",list_2_string(command)
+    print("   ",list_2_string(command))
     sys.stdout.flush()
 
-  p = subprocess.Popen(command,shell=False,stdout=subprocess.PIPE)
+  if sys.version_info[0] < 3:
+    p = subprocess.Popen(command,shell=False,stdout=subprocess.PIPE)
+  else:
+    p = subprocess.Popen(command,shell=False,stdout=subprocess.PIPE, encoding='utf8')
   output = p.communicate()[0]
   status = p.returncode
   if status != 0:
@@ -49,12 +53,15 @@ def stdout_noshell(command,echo=True):
 def stdout_shell(command,echo=True):
   if echo:
     if isinstance(command,list):
-      print "   ",command[0]
+      print("   ",command[0])
     else:
-      print "   ",command
+      print("   ",command)
     sys.stdout.flush()
 
-  p = subprocess.Popen(command,shell=True,stdout=subprocess.PIPE)
+  if sys.version_info[0] < 3:
+    p = subprocess.Popen(command,shell=True,stdout=subprocess.PIPE)
+  else:
+    p = subprocess.Popen(command,shell=True,stdout=subprocess.PIPE, encoding='utf8')
   output = p.communicate()[0]
   status = p.returncode
   if status != 0:
@@ -80,7 +87,7 @@ def parse_int_list(input):
     if len(minmax) == 1:
       retlist.append(int(minmax[0]))
     else:
-      for i in xrange(int(minmax[0]),int(minmax[1])+1):
+      for i in range(int(minmax[0]),int(minmax[1])+1):
         retlist.append(i)
 
   return sorted(list(set(retlist)))

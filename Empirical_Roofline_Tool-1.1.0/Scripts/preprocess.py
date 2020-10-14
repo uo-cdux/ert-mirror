@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import os,sys
 from util import PRECISION,INPUT,STATS,MEGA,GIGA
 
@@ -25,15 +26,15 @@ for l in os.sys.stdin:
   if not is_metadata and len(m) == INPUT.size:
     try:
       pkey = int(precision.value)
-      if not data.has_key(pkey):
+      if pkey not in data:
         data[pkey] = dict()
 
       wkey = int(m[INPUT.wkey])
-      if not data[pkey].has_key(wkey):
+      if wkey not in data[pkey]:
         data[pkey][wkey] = dict()
 
       tkey = int(m[INPUT.tkey])
-      if not data[pkey][wkey].has_key(tkey):
+      if tkey not in data[pkey][wkey]:
         data[pkey][wkey][tkey] = STATS.size*[0]
         first = True
       else:
@@ -61,18 +62,18 @@ for l in os.sys.stdin:
 
     except ValueError:
       pass
-for pkey in sorted(data.iterkeys()):
-  print (PRECISION(pkey).name)
-  print ""
-  for wkey in sorted(data[pkey].iterkeys()):
+for pkey in sorted(data.keys()):
+  print((PRECISION(pkey).name))
+  print("")
+  for wkey in sorted(data[pkey].keys()):
     tdict = data[pkey][wkey]
-    for tkey in sorted(tdict.iterkeys()):
+    for tkey in sorted(tdict.keys()):
       stats = tdict[tkey]
 
       msec_min = stats[STATS.msec_min]
 
       msec_med = sorted(stats[STATS.msec_med])
-      msec_med = msec_med[len(msec_med)/2]
+      msec_med = msec_med[len(msec_med)//2]
 
       msec_max = stats[STATS.msec_max]
 
@@ -88,7 +89,7 @@ for pkey in sorted(data.iterkeys()):
         GFLOP_sec_med = gflops/(msec_med/MEGA)
         GFLOP_sec_max = gflops/(msec_min/MEGA)
 
-        print wkey,          \
+        print(wkey,          \
               tkey,          \
               msec_min,      \
               msec_med,      \
@@ -98,11 +99,11 @@ for pkey in sorted(data.iterkeys()):
               GB_sec_max,    \
               GFLOP_sec_min, \
               GFLOP_sec_med, \
-              GFLOP_sec_max
+              GFLOP_sec_max)
 
-    print ""
+    print("")
 
-print "META_DATA"
-for k,m in metadata.items():
+print("META_DATA")
+for k,m in list(metadata.items()):
   if k != "META_DATA":
-    print k
+    print(k)

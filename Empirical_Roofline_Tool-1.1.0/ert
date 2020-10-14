@@ -37,7 +37,7 @@ flops_list = parse_int_list(ert.dict["CONFIG"]["ERT_FLOPS"][0])
 for flop in flops_list:
   # A bit of output if any verbosity has been requested
   if ert.options.verbose > 0:
-    print "FLOP count %d..." % flop
+    print("FLOP count %d..." % flop)
     sys.stdout.flush()
 
   # Set the ERT object flops/element
@@ -73,7 +73,7 @@ for flop in flops_list:
   sys.stdout.flush()
 
   if ert.options.verbose > 0:
-    print
+    print()
 
 # When all the experiments have been processed, generate the roofline graph
 # and JSON output
