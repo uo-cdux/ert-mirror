@@ -1,6 +1,7 @@
 #ifndef KERNEL1_H
 #define KERNEL1_H
 
+#include <inttypes.h>
 #include <type_traits>
 #include <typeinfo>
 
