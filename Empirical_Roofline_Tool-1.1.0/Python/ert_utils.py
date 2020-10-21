@@ -85,6 +85,19 @@ def parse_int_list(input):
 
   return sorted(list(set(retlist)))
 
+# Return a dictionary of integers from a string
+# Can be used in forming key:value pairs for GPU blokcs:threads, 
+# OpenCL global:local, etc.
+# E.g:
+# 2:3      -> {2:3}
+# 2:3,4:5  -> {2:3, 4:5}
+#
+def parse_int_dict(string):
+  retdict = dict((int(x.strip()), int(y.strip()))
+    for x, y in (element.split(':') for element in string.split(',')))
+
+  return retdict
+
 # Make a new directory if it doesn't already exist
 def make_dir_if_needed(dir,name,echo=True):
   if not os.path.exists(dir):
