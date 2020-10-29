@@ -24,11 +24,8 @@ For details about the ERT, please refer to the User's Manual in the
 repository under the `Empirical_Roofline_Tool-1.1.0` directory.
 
 ### Portability note
-ERT uses Python 2.7 and depends on the enum34 module. If your local python is missing this module, you can install it into your local environment (root privilege is not necessary) with the following commands:
-```
-$ python -m ensurepip --default-pip --user
-$ python -m pip install --user enum34
-```
+ERT is ported to Python 3 as of Oct 2020. Please make sure python3 is in your path when invoking ./ert.
+
 In addition, the postscript plot generation capabilities in ERT are compatible with `gnuplot` version 5.2.5. More recent versions are known to have incompatibilities.
 
 ## Roofline Visualizer ##
