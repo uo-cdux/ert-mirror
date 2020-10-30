@@ -26,8 +26,6 @@ repository under the `Empirical_Roofline_Tool-1.1.0` directory.
 ### Portability note
 ERT is ported to Python 3 as of Oct 2020. Please make sure python3 is in your path when invoking ./ert.
 
-In addition, the postscript plot generation capabilities in ERT are compatible with `gnuplot` version 5.2.5. More recent versions are known to have incompatibilities.
-
 ## Roofline Visualizer ##
 
 The Roofline Visualizer can visualize the roofline performance data
