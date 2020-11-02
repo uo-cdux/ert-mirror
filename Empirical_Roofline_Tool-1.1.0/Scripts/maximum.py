@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+from __future__ import print_function,division
 
 import os
 
@@ -12,18 +13,18 @@ for l in os.sys.stdin:
 
   if len(m) > 0 and m[0] == "META_DATA":
     found_metadata = True
-    print ""
+    print("")
 
   if found_metadata:
-    print l,
+    print(l, end=' ')
   else:
     if len(m) == 11 and m[0][0] != "#":
       if m[0] != field0:
         field0 = m[0]
       lastLine = l
     elif len(m) == 1 and m[0].islower():
-      print l,
+      print(l, end=' ')
       lastLine = ""
     elif len(m) == 0:
       if lastLine != "":
-        print lastLine,
+        print(lastLine, end=' ')

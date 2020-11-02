@@ -1,7 +1,9 @@
+from __future__ import print_function,division
 import sys,operator,subprocess,os,glob,filecmp,math
 import socket,platform,time,json,optparse,ast
 
-from ert_utils import *
+from .ert_utils import *
+from functools import reduce
 
 def text_list_2_string(text_list):
   return reduce(operator.add,[t+" " for t in text_list])
@@ -102,8 +104,8 @@ class ert_core:
 
   def configure(self):
     if self.options.verbose > 0:
-      print
-      print "Reading configuration from '%s'..." % self.configure_filename
+      print()
+      print("Reading configuration from '%s'..." % self.configure_filename)
 
     try:
       configure_file = open(self.configure_filename,"r")
@@ -158,9 +160,9 @@ class ert_core:
 
     if self.options.verbose > 0:
       if made_results:
-        print "  Making new results directory, %s..." % self.results_dir
+        print("  Making new results directory, %s..." % self.results_dir)
       else:
-        print "  Using existing results directory, %s..." % self.results_dir
+        print("  Using existing results directory, %s..." % self.results_dir)
 
     run_files = glob.glob("%s/Run.[0-9][0-9][0-9]" % self.results_dir)
     used_run_files = []
@@ -173,7 +175,7 @@ class ert_core:
           self.results_dir = run_file
           no_dir = False
           if self.options.verbose > 0:
-            print "    Using existing run directory, %s..." % self.results_dir
+            print("    Using existing run directory, %s..." % self.results_dir)
           break
         else:
           used_run_files.append(run_file)
@@ -186,24 +188,24 @@ class ert_core:
       if self.options.build or self.options.run:
         if len(used_run_list) == 0:
           used_run_list = [0]
-        for n in xrange(1,max(used_run_list)+2):
+        for n in range(1,max(used_run_list)+2):
           if n not in used_run_list:
             self.results_dir = "%s/Run.%03d" % (self.results_dir,n)
             if self.options.verbose > 0:
               if made_results:
-                print "    Making new run directory, '%s'..." % self.results_dir
+                print("    Making new run directory, '%s'..." % self.results_dir)
               else:
-                print
-                print "*** WARNING ***"
-                print "**"
-                print "**  Making new run directory, '%s'," % self.results_dir
-                print "**    because the current connfiguration file, '%s' " % self.configure_filename
-                print "**    doesn't match the configuration files, 'config.ert', under:"
-                print "**"
+                print()
+                print("*** WARNING ***")
+                print("**")
+                print("**  Making new run directory, '%s'," % self.results_dir)
+                print("**    because the current connfiguration file, '%s' " % self.configure_filename)
+                print("**    doesn't match the configuration files, 'config.ert', under:")
+                print("**")
                 for u in sorted(used_run_files):
-                  print "**      %s" % u
-                print "**"
-                print "*** WARNING ***"
+                  print("**      %s" % u)
+                print("**")
+                print("*** WARNING ***")
 
             command = ["mkdir",self.results_dir]
             if execute_noshell(command,self.options.verbose > 1) != 0:
@@ -221,7 +223,7 @@ class ert_core:
         return 1
 
     if self.options.verbose > 0:
-      print
+      print()
 
     return 0
 
@@ -229,8 +231,8 @@ class ert_core:
     if self.options.build:
       if self.options.verbose > 0:
         if self.options.verbose > 1:
-          print
-        print "  Building ERT core code..."
+          print()
+        print("  Building ERT core code...")
 
       command_prefix =                                                       \
         self.dict["CONFIG"]["ERT_CC"]                                                + \
@@ -315,10 +317,10 @@ class ert_core:
       sys.stderr.write("Unable to open output file, %s, to add metadata\n" % outputfile)
       return 1
 
-    for k,v in self.metadata.items():
+    for k,v in list(self.metadata.items()):
       output.write("%s  %s\n" % (k,v))
 
-    for k,v in self.dict.items():
+    for k,v in list(self.dict.items()):
       output.write("%s  %s\n" % (k,v))
 
     output.close()
@@ -336,13 +338,13 @@ class ert_core:
       if self.options.run:
         if os.path.exists("%s/run.done" % run_dir):
           if self.options.verbose > 1:
-            print "    Skipping %s - already run" % print_str
+            print("    Skipping %s - already run" % print_str)
         else:
           command = "(" + command + ") > %s/try.ERT_TRY_NUM 2>&1 " % run_dir
           if self.options.verbose > 0:
-            print "    %s" % print_str
+            print("    %s" % print_str)
 
-          for t in xrange(1,num_experiments+1):
+          for t in range(1,num_experiments+1):
             output = "%s/try.%03d" % (run_dir,t) 
 
             cur_command = command
@@ -365,8 +367,8 @@ class ert_core:
     if self.options.run:
       if self.options.verbose > 0:
         if self.options.verbose > 1:
-          print
-        print "  Running ERT core code..."
+          print()
+        print("  Running ERT core code...")
 
     self.run_list = []
 
@@ -485,18 +487,18 @@ class ert_core:
             submit(command, run_dir, print_str)
 
         if self.options.verbose > 1:
-          print
+          print()
 
     return 0
 
   def process(self):
     if self.options.post:
       if self.options.verbose > 0:
-        print "  Processing results..."
+        print("  Processing results...")
 
       for run in self.run_list:
         if self.options.verbose > 1:
-          print "   ",run
+          print("   ",run)
 
         command = ["cat %s/try.* | %s/Scripts/preprocess.py > %s/pre" % (run,self.exe_path,run)]
         if execute_shell(command,self.options.verbose > 1) != 0:
@@ -514,7 +516,7 @@ class ert_core:
           return 1
 
         if self.options.verbose > 1:
-          print
+          print()
 
     return 0
 
@@ -565,7 +567,7 @@ class ert_core:
           return 1
 
         if self.options.verbose > 1:
-          print
+          print()
 
     return 0
 
@@ -599,12 +601,12 @@ class ert_core:
 
   def build_database(self,gflop,gbyte):
     emp_gflops_data = []
-    for h in xrange(0,len(gflop)):
+    for h in range(0,len(gflop)):
       gflop_info = gflop[h].split()
       if len(gflop_info) == 4 and gflop_info[2] == "GFLOPs":
         name = gflop_info[1] + " " + gflop_info[2]
         emp_gflops_data.append([name,float(gflop_info[0])])
-      if len(gflop_info) == 1 and gflop_info[0] == "META_DATA":
+      if len(gflop_info) == 1 and gflop_info[0].strip() == "META_DATA":
         break
 
     emp_gflops_metadata = {}
@@ -637,14 +639,14 @@ class ert_core:
     emp_gbytes_metadata = {}
     emp_gbytes_data = []
 
-    for i in xrange(0,len(gbyte)):
-      if gbyte[i] == "META_DATA":
+    for i in range(0,len(gbyte)):
+      if gbyte[i].strip() == "META_DATA":
         break
       else:
         gbyte_split = gbyte[i].split()
         emp_gbytes_data.append([gbyte_split[1],float(gbyte_split[0])])
 
-    for j in xrange(i+1,len(gbyte)):
+    for j in range(i+1,len(gbyte)):
       metadata = gbyte[j]
 
       parts = metadata.partition(" ")
@@ -710,7 +712,7 @@ class ert_core:
   def roofline(self):
     if self.options.post:
       if self.options.verbose > 0:
-        print "Gathering the final roofline results..."
+        print("Gathering the final roofline results...")
 
       depth_string = "/*"
       if self.dict["CONFIG"]["ERT_MPI"][0] == "True":
@@ -732,8 +734,8 @@ class ert_core:
 
       lines = result[1].split("\n")
 
-      for i in xrange(0,len(lines)):
-        if len(lines[i]) == 0:
+      for i in range(0,len(lines)):
+        if len(lines[i].strip()) == 0:
           break
 
       gflop_lines = lines[:i]
@@ -752,32 +754,32 @@ class ert_core:
 
       database_file.close()
       
-      for i in xrange(0,len(gflop_lines)):
-        if gflop_lines[i] == "META_DATA":
+      for i in range(0,len(gflop_lines)):
+        if gflop_lines[i].strip() == "META_DATA":
           break
 
       num_peak = i
       gflops_emp = num_peak * [0]
 
-      for i in xrange(0,num_peak):
+      for i in range(0,num_peak):
         line = gflop_lines[i].split()
         gflops_emp[i] = [float(line[0]),line[1],line[2]]
 
-      for i in xrange(0,len(gbyte_lines)):
-        if gbyte_lines[i] == "META_DATA":
+      for i in range(0,len(gbyte_lines)):
+        if gbyte_lines[i].strip() == "META_DATA":
           break
 
       num_mem = i
       gbytes_emp = num_mem * [0]
 
-      for i in xrange(0,num_mem):
+      for i in range(0,num_mem):
         line = gbyte_lines[i].split()
         gbytes_emp[i] = [float(line[0]),line[1]]
 
       x = [[0 for i in range(num_peak)] for j in range(num_mem)]
       
-      for i in xrange(0,num_mem):
-        for j in xrange(0,num_peak):
+      for i in range(0,num_mem):
+        for j in range(0,num_peak):
           x[i][j] = gflops_emp[j][0]/gbytes_emp[i][0]
 
       if self.options.gnuplot or self.options.tikz:
@@ -822,12 +824,12 @@ class ert_core:
           return 1
 
         if self.options.gnuplot:
-          for h in xrange(0,num_peak):
+          for h in range(0,num_peak):
             xgflops = 2.0
             label = '%.1f %s/sec (%s Maximum)' % (gflops_emp[h][0],gflops_emp[h][2],gflops_emp[h][1])
             plotfile.write("set label '%s' at %.7le,%.7le left textcolor rgb '#000080'\n" % (label,xgflops,1.2*gflops_emp[h][0]))
         elif self.options.tikz:
-          for h in xrange(0,num_peak):
+          for h in range(0,num_peak):
             xgflops = 2.0
             label = '%.1f %s/sec (Maximum)' % (gflops_emp[h][0],gflops_emp[h][1])
             plotfile.write("\n    \\node[maxlabel] at (axis cs: %.7le,%.7le) {%s};\n" % (xgflops,1.2*gflops_emp[h][0],label))
@@ -848,7 +850,7 @@ class ert_core:
         alpha = 1.065
 
         label_over = True
-        for i in xrange(0,num_mem):
+        for i in range(0,num_mem):
           if i > 0:
             if label_over and gbytes_emp[i-1][0] / gbytes_emp[i][0] < 1.5:
               label_over = False
@@ -880,9 +882,9 @@ class ert_core:
         if self.options.gnuplot:
           plotfile.write("plot \\\n")
 
-          for i in xrange(0,num_mem):
+          for i in range(0,num_mem):
             plotfile.write("     (x <= %.7le ? %.7le * x : 1/0) lc 1 lw 2,\\\n" % (x[i][0],gbytes_emp[i][0]))
-          for j in xrange(0,num_peak):
+          for j in range(0,num_peak):
             if j == num_peak-1:
               break
             plotfile.write("     (x >= %.7le ? %.7le : 1/0) lc 3 lw 2,\\\n" % (x[0][j],gflops_emp[j][0]))
@@ -896,9 +898,9 @@ class ert_core:
 
         elif self.options.tikz:
           plotfile.write("\n")
-          for i in xrange(0,len(gbytes_emp)):
+          for i in range(0,len(gbytes_emp)):
             plotfile.write("    \\addplot[memline, domain=(\Xmin:%.7le)] {%.7le*x};\n" % (x[i][0],gbytes_emp[i][0]))
-          for j in xrange(0,num_peak):
+          for j in range(0,num_peak):
             if j == num_peak-1:
               break
             plotfile.write("    \\addplot[maxline, domain=(%.7le:\Xmax)] {%.7le};\n\n" % (x[0][j],gflops_emp[j][0]))
@@ -907,14 +909,14 @@ class ert_core:
           plotfile.close()
 
       if self.options.verbose > 0:
-        print
-        print "+-------------------------------------------------"
+        print()
+        print("+-------------------------------------------------")
         if self.options.gnuplot:
-          print "| Empirical roofline graph:    '%s/roofline.ps'"   % self.results_dir
+          print("| Empirical roofline graph:    '%s/roofline.ps'"   % self.results_dir)
         elif self.options.tikz:
-          print "| Empirical roofline graph:    '%s/roofline.tex'"   % self.results_dir
-        print "| Empirical roofline database: '%s/roofline.json'" % self.results_dir
-        print "+-------------------------------------------------"
-        print
+          print("| Empirical roofline graph:    '%s/roofline.tex'"   % self.results_dir)
+        print("| Empirical roofline database: '%s/roofline.json'" % self.results_dir)
+        print("+-------------------------------------------------")
+        print()
 
     return 0
